@@ -4,19 +4,19 @@
 # Evolución de agentes que generan y propagan conocimiento
 
 import agent_base, knowledge_agent, evolution_core
-import random, sequtils, tables, strformat
+import random, sequtils, tables, strformat, algorithm
 
 proc displayKnowledgeBase(kb: KnowledgeBase, maxConcepts: int = 10) =
   echo "  📚 Base de Conocimiento:"
   echo &"     Total conceptos: {kb.totalConcepts}"
   
   var displayCount = 0
-  for id, concept in kb.concepts:
+  for id, cpt in kb.concepts:
     if displayCount >= maxConcepts:
       echo &"     ... y {kb.totalConcepts - maxConcepts} más"
       break
     
-    let typeEmoji = case concept.conceptType:
+    let typeEmoji = case cpt.conceptType:
       of ctFact: "📌"
       of ctRule: "⚖️"
       of ctPattern: "🔍"
@@ -24,8 +24,8 @@ proc displayKnowledgeBase(kb: KnowledgeBase, maxConcepts: int = 10) =
       of ctHeuristic: "💡"
       of ctAnalogy: "🔗"
     
-    echo &"     {typeEmoji} [{concept.conceptType}] {concept.content[0..min(60, concept.content.len-1)]}"
-    echo &"        Confianza: {concept.confidence:.2f} | Edad: {concept.age} | Uso: {concept.usageCount}"
+    echo &"     {typeEmoji} [{cpt.conceptType}] {cpt.content[0..min(60, cpt.content.len-1)]}"
+    echo &"        Confianza: {cpt.confidence:.2f} | Edad: {cpt.age} | Uso: {cpt.usageCount}"
     inc displayCount
 
 proc runKnowledgeEvolution() =
@@ -102,8 +102,8 @@ proc runKnowledgeEvolution() =
         bestAgent = agent
     
     let avgFitness = totalFitness / float(agents.len)
-    let avgConcepts = totalConcepts / agents.len
-    let avgSyntheses = totalSyntheses / agents.len
+    let avgConcepts = totalConcepts.float / agents.len.float
+    let avgSyntheses = totalSyntheses.float / agents.len.float
     
     # Estadísticas
     echo ""
@@ -111,7 +111,7 @@ proc runKnowledgeEvolution() =
     echo &"   Fitness promedio:      {avgFitness:.1f}"
     echo &"   Mejor fitness:         {bestFitness:.1f}"
     echo &"   Conceptos promedio:    {avgConcepts:.1f}"
-    echo &"   Síntesis promedio:     {avgSyntheses:.1f}"
+    echo &"   Sintesis promedio:     {avgSyntheses:.1f}"
     echo &"   Conocimiento compartido: {env.sharedKnowledge.totalConcepts}"
     echo ""
     
@@ -122,9 +122,9 @@ proc runKnowledgeEvolution() =
     echo &"   Conceptos totales: {bestAgent.knowledgeBase.totalConcepts}"
     echo &"   Síntesis exitosas: {bestAgent.successfulSyntheses} / {bestAgent.synthesisAttempts}"
     echo &"   Tasa de aprendizaje: {bestAgent.learningRate:.3f}"
-    echo &"   Creatividad: {bestAgent.genome.creativity:.3f}"
-    echo &"   Pensamiento crítico: {bestAgent.genome.criticalThinking:.3f}"
-    echo &"   Estrategias: {bestAgent.genome.strategies}"
+    echo &"   Creatividad: {bestAgent.knowledgeGenome.creativity:.3f}"
+    echo &"   Pensamiento crítico: {bestAgent.knowledgeGenome.criticalThinking:.3f}"
+    echo &"   Estrategias: {bestAgent.knowledgeGenome.strategies}"
     echo ""
     
     displayKnowledgeBase(bestAgent.knowledgeBase, maxConcepts = 5)
@@ -145,7 +145,7 @@ proc runKnowledgeEvolution() =
       var sorted = agents
       sorted.sort(proc(a, b: KnowledgeAgent): int =
         cmp(b.state.fitness, a.state.fitness)
-      )
+      , Descending)
       
       for i in 0..<params.eliteSize:
         nextGen.add(sorted[i])
@@ -173,7 +173,7 @@ proc runKnowledgeEvolution() =
           offspring = crossoverKnowledgeAgents(parent1, parent2, nextId)
         else:
           offspring = newKnowledgeAgent(nextId)
-          offspring.genome = parent1.genome
+          offspring.knowledgeGenome = parent1.knowledgeGenome
           offspring.learningRate = parent1.learningRate
         
         # Mutación
@@ -208,11 +208,11 @@ proc runKnowledgeEvolution() =
   echo &"   Conceptos podados: {bestFinalAgent.conceptsPruned}"
   echo ""
   echo "   Genoma optimizado:"
-  echo &"     • Creatividad: {bestFinalAgent.genome.creativity:.3f}"
-  echo &"     • Pensamiento crítico: {bestFinalAgent.genome.criticalThinking:.3f}"
-  echo &"     • Tasa de síntesis: {bestFinalAgent.genome.synthesisRate:.3f}"
+  echo &"     • Creatividad: {bestFinalAgent.knowledgeGenome.creativity:.3f}"
+  echo &"     • Pensamiento crítico: {bestFinalAgent.knowledgeGenome.criticalThinking:.3f}"
+  echo &"     • Tasa de síntesis: {bestFinalAgent.knowledgeGenome.synthesisRate:.3f}"
   echo &"     • Tasa de aprendizaje: {bestFinalAgent.learningRate:.3f}"
-  echo &"     • Estrategias: {bestFinalAgent.genome.strategies}"
+  echo &"     • Estrategias: {bestFinalAgent.knowledgeGenome.strategies}"
   echo ""
   
   echo "📚 Base de Conocimiento Final (muestra):"
@@ -221,8 +221,8 @@ proc runKnowledgeEvolution() =
   
   # Análisis de tipos de conocimiento
   var typeCounts: array[ConceptType, int]
-  for concept in bestFinalAgent.knowledgeBase.concepts.values:
-    inc typeCounts[concept.conceptType]
+  for cpt in bestFinalAgent.knowledgeBase.concepts.values:
+    inc typeCounts[cpt.conceptType]
   
   echo "📊 Distribución de Tipos de Conocimiento:"
   for conceptType in ConceptType:

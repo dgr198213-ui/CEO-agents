@@ -17,7 +17,7 @@
 ## 3. El CEO evoluciona su estrategia de routing basado en feedback
 ## 4. El sistema co-evoluciona para maximizar éxito global del proyecto
 
-import random, math, tables, strutils, sequtils, algorithm, times
+import random, math, tables, strutils, sequtils, algorithm, times, strformat
 
 randomize()
 
@@ -482,9 +482,10 @@ when isMainModule:
   # Evaluar CEO
   ceo.evaluateCEOFitness()
   
-  echo "\n" & "─" * 75
+  echo ""
+  echo "─".repeat(75)
   echo "📊 PROJECT RESULTS"
-  echo "─" * 75
+  echo "─".repeat(75)
   
   # Global stats
   let successRate = 100.0 * ceo.successfulTasks.float / ceo.totalTasks.float
@@ -500,8 +501,8 @@ when isMainModule:
   
   # Agent breakdown
   echo &"\n👥 Agent Performance Breakdown:"
-  echo &"   {'Agent':<20} {'Tasks':>8} {'Success':>10} {'Rate':>8} {'Avg Quality':>12}"
-  echo &"   {'-'*20} {'-'*8} {'-'*10} {'-'*8} {'-'*12}"
+  echo "   " & alignLeft("Agent", 20) & " " & align("Tasks", 8) & " " & align("Success", 10) & " " & align("Rate", 8) & " " & align("Avg Quality", 12)
+  echo "   " & "-".repeat(20) & " " & "-".repeat(8) & " " & "-".repeat(10) & " " & "-".repeat(8) & " " & "-".repeat(12)
   
   for sa in ceo.stackAgents:
     if sa.totalTasks > 0:
@@ -545,4 +546,4 @@ when isMainModule:
   echo &"\n⏱️  Execution time: {elapsedTime:6.3f} seconds"
   
   echo "\n✅ CEO + Stack Agents integration demo completed successfully!"
-  echo "═" * 75
+  echo "═".repeat(75)

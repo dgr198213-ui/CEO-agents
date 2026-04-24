@@ -113,7 +113,7 @@ type
 
 type
   NotificationAgent* = ref object of Agent
-    genome*: NotificationGenome
+    notifGenome*: NotificationGenome
     users*: seq[UserProfile]
     pendingNotifications*: seq[Notification]
     sentNotifications*: int
@@ -157,7 +157,7 @@ proc newNotificationAgent*(id: int, genome: NotificationGenome = randomGenome())
   ## Crea un nuevo agente de notificaciones
   result = NotificationAgent(
     id: id,
-    genome: genome,
+    notifGenome: genome,
     users: @[],
     pendingNotifications: @[],
     sentNotifications: 0,
@@ -167,7 +167,6 @@ proc newNotificationAgent*(id: int, genome: NotificationGenome = randomGenome())
     avgEngagement: 0.0,
     reputationScore: 100.0  # Empieza con reputación perfecta
   )
-  result.init()
 
 ## ───────────────────────────────────────────────────────────────────────────
 ## Generación de Usuarios Simulados
@@ -284,7 +283,7 @@ proc shouldSendNotification(agent: NotificationAgent,
   
   # 2. Cooldown period
   let hoursSinceLastNotif = (currentTime - user.lastNotification) / 3600.0
-  if hoursSinceLastNotif < agent.genome.cooldownPeriod:
+  if hoursSinceLastNotif < agent.notifGenome.cooldownPeriod:
     return (false, 0.0)
   
   # 3. Matching de segmento
@@ -300,24 +299,24 @@ proc shouldSendNotification(agent: NotificationAgent,
     score -= 10.0
   
   # 5. Engagement rate del usuario vs threshold
-  if user.engagementRate >= agent.genome.minEngagementThreshold:
+  if user.engagementRate >= agent.notifGenome.minEngagementThreshold:
     score += user.engagementRate * 30.0
   else:
     score -= 15.0
   
   # 6. Prioridad del tipo de notificación
-  score += agent.genome.typePriorities[notif.notifType] * 20.0
+  score += agent.notifGenome.typePriorities[notif.notifType] * 20.0
   
   # 7. Hora del día (simulado: asumimos hora actual 0-23)
   let currentHour = int(currentTime) mod 24
-  if currentHour in agent.genome.preferredHours[user.segment]:
+  if currentHour in agent.notifGenome.preferredHours[user.segment]:
     score += 15.0
   
   if currentHour in user.activeHours:
     score += 20.0
   
   # 8. Personalización
-  score += agent.genome.personalizationWeight * 10.0
+  score += agent.notifGenome.personalizationWeight * 10.0
   
   # Threshold final
   let shouldSend = score > 50.0
@@ -363,7 +362,7 @@ proc simulateUserResponse(user: var UserProfile,
 ## Interfaz de Agent
 ## ───────────────────────────────────────────────────────────────────────────
 
-method update*(agent: NotificationAgent, dt: float) =
+method update*(agent: NotificationAgent, env: Environment, dt: float) =
   ## Ciclo de actualización: procesa notificaciones pendientes
   var currentTime = float(agent.sentNotifications)
   
@@ -427,7 +426,7 @@ method update*(agent: NotificationAgent, dt: float) =
   
   agent.reputationScore = 100.0 * (1.0 - optOutRate) * agent.avgEngagement
 
-method fitness*(agent: NotificationAgent): float =
+method evaluateFitness*(agent: NotificationAgent, env: Environment): float =
   ## Función de fitness multi-objetivo:
   ## 1. Maximizar CTR (30%)
   ## 2. Maximizar engagement promedio (30%)
@@ -450,7 +449,7 @@ method fitness*(agent: NotificationAgent): float =
 
 method clone*(agent: NotificationAgent): Agent =
   ## Clona el agente
-  result = newNotificationAgent(agent.id, agent.genome)
+  result = newNotificationAgent(agent.id, agent.notifGenome)
 
 ## ───────────────────────────────────────────────────────────────────────────
 ## Operadores Genéticos
@@ -561,7 +560,7 @@ when isMainModule:
   
   echo "\nSimulando campaña de notificaciones (100 updates)..."
   for i in 0..<100:
-    agent.update(1.0)
+    agent.update(nil, 1.0)
     
     if i mod 20 == 0:
       echo fmt"Update {i:3d} | Sent: {agent.sentNotifications:5d} | CTR: {agent.avgCTR*100:5.2f}% | " &
@@ -578,4 +577,4 @@ when isMainModule:
   echo fmt"Engagement promedio: {agent.avgEngagement * 100:.1f}%"
   echo fmt"Opt-outs: {agent.totalOptOuts} ({agent.totalOptOuts.float / agent.users.len.float * 100:.1f}%)"
   echo fmt"Reputation score: {agent.reputationScore:.1f}/100"
-  echo fmt"Fitness: {agent.fitness():.2f}"
+  echo fmt"Fitness: {agent.evaluateFitness(nil):.2f}"

@@ -1,0 +1,37 @@
+# Binarios compilados
+bin/
+nimcache/
+
+# Ejecutables sin extensión (Linux/macOS)
+agent_base
+cache_strategy_agent
+ceo_agent
+coevo_agent
+evolution_core
+example_coevolution
+example_foraging
+example_integrated_ceo_stack
+example_knowledge
+example_pwa_integrated
+example_swarm
+knowledge_agent
+neuro_agent
+notification_agent
+stack_agents
+swarm_agent
+sync_agent
+
+# Archivos objeto
+*.o
+*.a
+
+# Archivos temporales
+*.tmp
+*~
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/

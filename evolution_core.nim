@@ -4,7 +4,7 @@
 # Generic evolutionary algorithm implementation for all agent types
 
 import agent_base, neuro_agent
-import random, sequtils, algorithm, math, tables
+import random, sequtils, algorithm, math, tables, strformat
 
 # ============================================================================
 # Population Management
@@ -187,24 +187,23 @@ proc evolvePopulation*[T: NeuroAgent](pop: Population[T], params: EvolutionParam
     let parent1 = tournamentSelection(pop, params.tournamentSize)
     let parent2 = tournamentSelection(pop, params.tournamentSize)
     
-    var offspring: T
+    # Clone parent1 to preserve the concrete type T
+    # (direct object construction would lose subtype fields)
+    var offspring: T = parent1
+    offspring.id = nextId
+    offspring.state = AgentState(
+      position: Vector2D(x: 0.0, y: 0.0),
+      velocity: Vector2D(x: 0.0, y: 0.0),
+      energy: 100.0,
+      age: 0,
+      fitness: 0.0
+    )
     
-    # Crossover
+    # Crossover: mix neural networks
     if rand(1.0) < params.crossoverRate:
-      offspring = T(crossoverNeuroAgents(parent1, parent2, nextId))
+      offspring.network = crossover(parent1.network, parent2.network)
     else:
-      # Clone parent
-      offspring = T(NeuroAgent(
-        id: nextId,
-        network: parent1.network,
-        state: AgentState(
-          position: Vector2D(x: 0.0, y: 0.0),
-          velocity: Vector2D(x: 0.0, y: 0.0),
-          energy: 100.0,
-          age: 0,
-          fitness: 0.0
-        )
-      ))
+      offspring.network = parent1.network
     
     # Mutation
     mutateNeuroAgent(offspring, params)
@@ -245,10 +244,10 @@ proc computeStats*[T: Agent](pop: Population[T]): EvolutionStats =
 proc printStats*(stats: EvolutionStats) =
   ## Print evolution statistics
   echo "Generation: ", stats.generation
-  echo "  Best:    ", stats.bestFitness.formatFloat(ffDecimal, 2)
-  echo "  Average: ", stats.avgFitness.formatFloat(ffDecimal, 2)
-  echo "  Worst:   ", stats.worstFitness.formatFloat(ffDecimal, 2)
-  echo "  Diversity: ", stats.diversity.formatFloat(ffDecimal, 2)
+  echo &"  Best:    {stats.bestFitness:.2f}"
+  echo &"  Average: {stats.avgFitness:.2f}"
+  echo &"  Worst:   {stats.worstFitness:.2f}"
+  echo &"  Diversity: {stats.diversity:.2f}"
   echo ""
 
 # ============================================================================

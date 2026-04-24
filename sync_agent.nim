@@ -123,7 +123,7 @@ type
     nsWiFi
 
   SyncAgent* = ref object of Agent
-    genome*: SyncGenome
+    syncGenome*: SyncGenome
     pendingOps*: seq[SyncOperation]
     serverState*: Table[int, DataRecord]   ## Estado del servidor (simulado)
     localState*: Table[int, DataRecord]    ## Estado local del cliente
@@ -171,7 +171,7 @@ proc newSyncAgent*(id: int, genome: SyncGenome = randomGenome()): SyncAgent =
   ## Crea un nuevo agente de sincronización
   result = SyncAgent(
     id: id,
-    genome: genome,
+    syncGenome: genome,
     pendingOps: @[],
     serverState: initTable[int, DataRecord](),
     localState: initTable[int, DataRecord](),
@@ -184,7 +184,6 @@ proc newSyncAgent*(id: int, genome: SyncGenome = randomGenome()): SyncAgent =
     dataConsumption: 0.0,
     successRate: 1.0
   )
-  result.init()
 
 ## ───────────────────────────────────────────────────────────────────────────
 ## Generación de Operaciones Simuladas
@@ -266,7 +265,7 @@ proc detectConflict*(agent: SyncAgent, op: SyncOperation): bool =
 
 proc resolveConflict*(agent: SyncAgent, op: var SyncOperation): DataRecord =
   ## Resuelve un conflicto según la estrategia configurada
-  let strategy = agent.genome.conflictStrategies[op.opType]
+  let strategy = agent.syncGenome.conflictStrategies[op.opType]
   
   if op.record.id notin agent.serverState:
     # No hay conflicto real, aplicar operación
@@ -320,7 +319,7 @@ proc resolveConflict*(agent: SyncAgent, op: var SyncOperation): DataRecord =
 
 proc calculateBackoff*(agent: SyncAgent, retryCount: int): float =
   ## Calcula backoff exponencial
-  result = agent.genome.initialBackoff * pow(agent.genome.backoffMultiplier, float(retryCount))
+  result = agent.syncGenome.initialBackoff * pow(agent.syncGenome.backoffMultiplier, float(retryCount))
   result = min(result, 3600.0)  # Max 1 hora
 
 proc shouldSync*(agent: SyncAgent, op: SyncOperation, currentTime: float): bool =
@@ -331,12 +330,12 @@ proc shouldSync*(agent: SyncAgent, op: SyncOperation, currentTime: float): bool 
     return false
   
   # 2. Si prefiere WiFi y es low priority, esperar WiFi
-  if agent.genome.preferWiFi and op.priority == spLow:
+  if agent.syncGenome.preferWiFi and op.priority == spLow:
     if agent.networkState != nsWiFi:
       return false
   
   # 3. Verificar intervalo de sincronización
-  let interval = agent.genome.syncIntervals[op.priority]
+  let interval = agent.syncGenome.syncIntervals[op.priority]
   let timeSinceOp = currentTime - op.timestamp
   
   if timeSinceOp < interval:
@@ -350,7 +349,7 @@ proc shouldSync*(agent: SyncAgent, op: SyncOperation, currentTime: float): bool 
       return false
   
   # 5. Verificar max retries
-  if op.retryCount >= agent.genome.maxRetries:
+  if op.retryCount >= agent.syncGenome.maxRetries:
     return false  # Abandonar
   
   return true
@@ -411,7 +410,7 @@ proc syncOperation*(agent: SyncAgent, op: var SyncOperation, currentTime: float)
   
   # Simular consumo de datos (1-50 KB por operación)
   let dataSize = rand(1.0..50.0) / 1024.0  # MB
-  let compressionFactor = if agent.genome.compressionEnabled: 0.4 else: 1.0
+  let compressionFactor = if agent.syncGenome.compressionEnabled: 0.4 else: 1.0
   agent.dataConsumption += dataSize * compressionFactor
   
   return true
@@ -425,7 +424,7 @@ proc autoPrioritize*(agent: SyncAgent, currentTime: float) =
   for op in agent.pendingOps.mitems:
     let ageHours = (currentTime - op.timestamp) / 3600.0
     
-    if ageHours > agent.genome.autoPriorityThreshold:
+    if ageHours > agent.syncGenome.autoPriorityThreshold:
       # Elevar prioridad
       case op.priority
       of spLow: op.priority = spMedium
@@ -437,7 +436,7 @@ proc autoPrioritize*(agent: SyncAgent, currentTime: float) =
 ## Interfaz de Agent
 ## ───────────────────────────────────────────────────────────────────────────
 
-method update*(agent: SyncAgent, dt: float) =
+method update*(agent: SyncAgent, env: Environment, dt: float) =
   ## Ciclo de actualización: procesa sincronizaciones pendientes
   var currentTime = float(agent.totalSynced)
   
@@ -459,7 +458,7 @@ method update*(agent: SyncAgent, dt: float) =
   var toRemove: seq[int] = @[]
   
   for i, op in agent.pendingOps.mpairs:
-    if batchCount >= agent.genome.batchSize:
+    if batchCount >= agent.syncGenome.batchSize:
       break
     
     if agent.shouldSync(op, currentTime):
@@ -484,7 +483,7 @@ method update*(agent: SyncAgent, dt: float) =
   if totalAttempts > 0:
     agent.successRate = float(agent.totalSynced) / float(totalAttempts)
 
-method fitness*(agent: SyncAgent): float =
+method evaluateFitness*(agent: SyncAgent, env: Environment): float =
   ## Función de fitness multi-objetivo:
   ## 1. Maximizar success rate (35%)
   ## 2. Minimizar conflictos no resueltos (25%)
@@ -513,7 +512,7 @@ method fitness*(agent: SyncAgent): float =
 
 method clone*(agent: SyncAgent): Agent =
   ## Clona el agente
-  result = newSyncAgent(agent.id, agent.genome)
+  result = newSyncAgent(agent.id, agent.syncGenome)
 
 ## ───────────────────────────────────────────────────────────────────────────
 ## Operadores Genéticos
@@ -619,7 +618,7 @@ when isMainModule:
   
   echo "\nSimulando sincronización (50 updates)..."
   for i in 0..<50:
-    agent.update(1.0)
+    agent.update(nil, 1.0)
     
     if i mod 10 == 0:
       echo fmt"Update {i:3d} | Synced: {agent.totalSynced:4d} | Pending: {agent.pendingOps.len:3d} | " &
@@ -638,8 +637,8 @@ when isMainModule:
   echo fmt"Success rate: {agent.successRate * 100:.1f}%"
   echo fmt"Latencia promedio: {agent.avgSyncLatency:.1f}ms"
   echo fmt"Consumo de datos: {agent.dataConsumption:.2f}MB"
-  echo fmt"Fitness: {agent.fitness():.2f}"
+  echo fmt"Fitness: {agent.evaluateFitness(nil):.2f}"
   
   echo "\nEstrategias de resolución de conflictos:"
-  for op, strat in agent.genome.conflictStrategies.pairs:
+  for op, strat in agent.syncGenome.conflictStrategies.pairs:
     echo fmt"  {op}: {strat}"

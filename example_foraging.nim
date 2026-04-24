@@ -4,7 +4,7 @@
 # Demonstrates neuroevolution for a resource gathering task
 
 import agent_base, neuro_agent, evolution_core
-import random, sequtils, os
+import strformat, random, sequtils, os, math
 
 # ============================================================================
 # Foraging Environment
@@ -216,8 +216,8 @@ proc main() =
       nextId += params.populationSize
   
   echo "\n🎉 Evolution complete!"
-  echo "Final best fitness: ", pop.bestFitness.formatFloat(ffDecimal, 2)
-  echo "Final average fitness: ", pop.avgFitness.formatFloat(ffDecimal, 2)
+  echo "Final best fitness: ", fmt"{pop.bestFitness:.2f}"
+  echo "Final average fitness: ", fmt"{pop.avgFitness:.2f}"
 
 when isMainModule:
   main()

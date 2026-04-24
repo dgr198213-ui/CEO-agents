@@ -80,7 +80,7 @@ type
 
 type
   CacheStrategyAgent* = ref object of Agent
-    genome*: CacheGenome
+    cacheGenome*: CacheGenome
     cacheState*: seq[CacheEntry]    ## Estado actual de caché
     resources*: seq[ResourceProfile] ## Catálogo de recursos
     totalCacheSize*: float           ## Tamaño actual de caché (MB)
@@ -116,7 +116,7 @@ proc newCacheStrategyAgent*(id: int, genome: CacheGenome = randomGenome()): Cach
   ## Crea un nuevo agente de estrategia de caché
   result = CacheStrategyAgent(
     id: id,
-    genome: genome,
+    cacheGenome: genome,
     cacheState: @[],
     resources: @[],
     totalCacheSize: 0.0,
@@ -125,7 +125,6 @@ proc newCacheStrategyAgent*(id: int, genome: CacheGenome = randomGenome()): Cach
     avgLatency: 0.0,
     offlineAvailability: 0.0
   )
-  result.init()
 
 ## ───────────────────────────────────────────────────────────────────────────
 ## Simulación de Recursos Web
@@ -177,7 +176,7 @@ proc generateResourceCatalog*(count: int): seq[ResourceProfile] =
 proc simulateRequest(agent: CacheStrategyAgent, resource: ResourceProfile, 
                      currentTime: float): tuple[latency: float, hit: bool] =
   ## Simula una solicitud de recurso con la estrategia de caché configurada
-  let strategy = agent.genome.strategyMap[resource.resType]
+  let strategy = agent.cacheGenome.strategyMap[resource.resType]
   
   # Latencias simuladas (ms)
   const 
@@ -220,7 +219,7 @@ proc simulateRequest(agent: CacheStrategyAgent, resource: ResourceProfile,
 
 proc evictResources(agent: CacheStrategyAgent) =
   ## Elimina recursos del caché según política de eviction
-  if agent.totalCacheSize <= agent.genome.maxCacheSize:
+  if agent.totalCacheSize <= agent.cacheGenome.maxCacheSize:
     return  # No hay necesidad de evictar
   
   # Ordenar por: prioridad crítica (ascendente), luego por último acceso (ascendente) - LRU
@@ -233,7 +232,7 @@ proc evictResources(agent: CacheStrategyAgent) =
       return cmp(a.profile.lastAccess, b.profile.lastAccess)
   
   # Eliminar hasta alcanzar threshold
-  let targetSize = agent.genome.maxCacheSize * agent.genome.evictionThreshold
+  let targetSize = agent.cacheGenome.maxCacheSize * agent.cacheGenome.evictionThreshold
   while agent.totalCacheSize > targetSize and agent.cacheState.len > 0:
     let evicted = agent.cacheState[0]
     agent.cacheState.delete(0)
@@ -253,7 +252,7 @@ proc addToCache(agent: CacheStrategyAgent, resource: ResourceProfile) =
   # Crear nueva entrada
   let newEntry = CacheEntry(
     profile: resource,
-    strategy: agent.genome.strategyMap[resource.resType],
+    strategy: agent.cacheGenome.strategyMap[resource.resType],
     cacheHits: 0,
     cacheMisses: 0,
     networkLatency: 150.0,
@@ -289,7 +288,7 @@ proc predictNextResources(agent: CacheStrategyAgent,
   )
   
   # Tomar ventana de prefetch
-  let window = min(agent.genome.prefetchWindow, candidates.len)
+  let window = min(agent.cacheGenome.prefetchWindow, candidates.len)
   result = candidates[0..<window]
 
 ## ───────────────────────────────────────────────────────────────────────────
@@ -315,7 +314,7 @@ proc calculateMetrics(agent: CacheStrategyAgent) =
   # Disponibilidad offline: % de recursos críticos en caché
   let criticalResources = agent.resources.filterIt(it.criticalPath)
   let criticalInCache = criticalResources.filterIt(
-    agent.cacheState.anyIt(it.profile.url == it.url)
+    (let resUrl = it.url; agent.cacheState.anyIt(it.profile.url == resUrl))
   )
   agent.offlineAvailability = if criticalResources.len > 0:
     float(criticalInCache.len) / float(criticalResources.len)
@@ -326,7 +325,7 @@ proc calculateMetrics(agent: CacheStrategyAgent) =
 ## Interfaz de Agent
 ## ───────────────────────────────────────────────────────────────────────────
 
-method update*(agent: CacheStrategyAgent, dt: float) =
+method update*(agent: CacheStrategyAgent, env: Environment, dt: float) =
   ## Simula un ciclo de actualización (procesamiento de solicitudes)
   const requestsPerUpdate = 20
   
@@ -355,7 +354,7 @@ method update*(agent: CacheStrategyAgent, dt: float) =
           entry.profile.lastAccess = float(agent.totalRequests)
     else:
       # Miss: añadir a caché si la estrategia lo permite
-      if agent.genome.strategyMap[selectedResource.resType] != csNetworkOnly:
+      if agent.cacheGenome.strategyMap[selectedResource.resType] != csNetworkOnly:
         agent.addToCache(selectedResource)
       
       for entry in agent.cacheState.mitems:
@@ -372,7 +371,7 @@ method update*(agent: CacheStrategyAgent, dt: float) =
   # Recalcular métricas
   agent.calculateMetrics()
 
-method fitness*(agent: CacheStrategyAgent): float =
+method evaluateFitness*(agent: CacheStrategyAgent, env: Environment): float =
   ## Función de fitness multi-objetivo:
   ## 1. Maximizar cache hit ratio (40%)
   ## 2. Minimizar latencia promedio (30%)
@@ -388,8 +387,8 @@ method fitness*(agent: CacheStrategyAgent): float =
   let offlineScore = agent.offlineAvailability * 20.0
   
   # Eficiencia de caché (menor uso relativo es mejor)
-  let cacheEfficiency = if agent.genome.maxCacheSize > 0:
-    1.0 - (agent.totalCacheSize / agent.genome.maxCacheSize)
+  let cacheEfficiency = if agent.cacheGenome.maxCacheSize > 0:
+    1.0 - (agent.totalCacheSize / agent.cacheGenome.maxCacheSize)
   else:
     0.0
   let cacheScore = cacheEfficiency * 10.0
@@ -398,7 +397,7 @@ method fitness*(agent: CacheStrategyAgent): float =
 
 method clone*(agent: CacheStrategyAgent): Agent =
   ## Clona el agente
-  result = newCacheStrategyAgent(agent.id, agent.genome)
+  result = newCacheStrategyAgent(agent.id, agent.cacheGenome)
 
 ## ───────────────────────────────────────────────────────────────────────────
 ## Operadores Genéticos Especializados
@@ -458,6 +457,16 @@ proc crossoverGenomes*(g1, g2: CacheGenome): CacheGenome =
 ## Evolución de Población
 ## ───────────────────────────────────────────────────────────────────────────
 
+proc tournamentSelection(scores: seq[tuple[agent: CacheStrategyAgent, score: float]], 
+                        tournamentSize: int): tuple[agent: CacheStrategyAgent, score: float] =
+  ## Selección por torneo
+  var best = scores[rand(scores.len - 1)]
+  for i in 1..<tournamentSize:
+    let candidate = scores[rand(scores.len - 1)]
+    if candidate.score > best.score:
+      best = candidate
+  result = best
+
 proc evolvePopulation*(agents: var seq[CacheStrategyAgent], 
                       resources: seq[ResourceProfile],
                       generations: int = 50) =
@@ -475,12 +484,12 @@ proc evolvePopulation*(agents: var seq[CacheStrategyAgent],
     # 1. Simular solicitudes (100 updates = ~2000 requests)
     for agent in agents.mitems:
       for i in 0..<100:
-        agent.update(1.0)
+        agent.update(nil, 1.0)
     
     # 2. Evaluar fitness
     var fitnessScores: seq[tuple[agent: CacheStrategyAgent, score: float]] = @[]
     for agent in agents:
-      fitnessScores.add((agent, agent.fitness()))
+      fitnessScores.add((agent, agent.evaluateFitness(nil)))
     
     # Ordenar por fitness descendente
     fitnessScores.sort(proc (a, b: auto): int = cmp(b.score, a.score))
@@ -490,7 +499,7 @@ proc evolvePopulation*(agents: var seq[CacheStrategyAgent],
       let best = fitnessScores[0]
       echo fmt"Gen {gen:3d} | Fitness: {best.score:6.2f} | Hit: {best.agent.cacheHitRatio*100:5.1f}% | " &
            fmt"Latency: {best.agent.avgLatency:5.1f}ms | Offline: {best.agent.offlineAvailability*100:5.1f}% | " &
-           fmt"Cache: {best.agent.totalCacheSize:5.1f}/{best.agent.genome.maxCacheSize:5.1f}MB"
+           fmt"Cache: {best.agent.totalCacheSize:5.1f}/{best.agent.cacheGenome.maxCacheSize:5.1f}MB"
     
     # 4. Selección y reproducción (elitismo + torneo)
     let eliteCount = agents.len div 10  # Top 10%
@@ -500,7 +509,7 @@ proc evolvePopulation*(agents: var seq[CacheStrategyAgent],
     for i in 0..<eliteCount:
       newPopulation.add(newCacheStrategyAgent(
         fitnessScores[i].agent.id, 
-        fitnessScores[i].agent.genome
+        fitnessScores[i].agent.cacheGenome
       ))
     
     # Generar resto mediante torneo + crossover + mutación
@@ -508,7 +517,7 @@ proc evolvePopulation*(agents: var seq[CacheStrategyAgent],
       let p1 = tournamentSelection(fitnessScores, 3)
       let p2 = tournamentSelection(fitnessScores, 3)
       
-      var childGenome = crossoverGenomes(p1.agent.genome, p2.agent.genome)
+      var childGenome = crossoverGenomes(p1.agent.cacheGenome, p2.agent.cacheGenome)
       mutateGenome(childGenome, 0.15)
       
       newPopulation.add(newCacheStrategyAgent(newPopulation.len, childGenome))
@@ -516,15 +525,7 @@ proc evolvePopulation*(agents: var seq[CacheStrategyAgent],
     # 5. Reemplazar población
     agents = newPopulation
 
-proc tournamentSelection(scores: seq[tuple[agent: CacheStrategyAgent, score: float]], 
-                        tournamentSize: int): tuple[agent: CacheStrategyAgent, score: float] =
-  ## Selección por torneo
-  var best = scores[rand(scores.len - 1)]
-  for i in 1..<tournamentSize:
-    let candidate = scores[rand(scores.len - 1)]
-    if candidate.score > best.score:
-      best = candidate
-  result = best
+
 
 ## ═══════════════════════════════════════════════════════════════════════════
 ## Ejemplo de Uso
@@ -559,19 +560,19 @@ when isMainModule:
   # Encontrar el mejor agente
   var best = population[0]
   for agent in population:
-    if agent.fitness() > best.fitness():
+    if agent.evaluateFitness(nil) > best.evaluateFitness(nil):
       best = agent
   
-  echo fmt"Fitness final: {best.fitness():.2f}"
+  echo fmt"Fitness final: {best.evaluateFitness(nil):.2f}"
   echo fmt"Cache hit ratio: {best.cacheHitRatio * 100:.1f}%"
   echo fmt"Latencia promedio: {best.avgLatency:.1f}ms"
   echo fmt"Disponibilidad offline: {best.offlineAvailability * 100:.1f}%"
-  echo fmt"Uso de caché: {best.totalCacheSize:.1f}/{best.genome.maxCacheSize:.1f}MB"
+  echo fmt"Uso de caché: {best.totalCacheSize:.1f}/{best.cacheGenome.maxCacheSize:.1f}MB"
   
   echo "\nEstrategias por tipo de recurso:"
   for rt in ResourceType:
-    echo fmt"  {rt}: {best.genome.strategyMap[rt]}"
+    echo fmt"  {rt}: {best.cacheGenome.strategyMap[rt]}"
   
-  echo fmt"\nPrefetch window: {best.genome.prefetchWindow} recursos"
-  echo fmt"Eviction threshold: {best.genome.evictionThreshold * 100:.1f}%"
-  echo fmt"Critical path priority: {best.genome.criticalPathPriority * 100:.1f}%"
+  echo fmt"\nPrefetch window: {best.cacheGenome.prefetchWindow} recursos"
+  echo fmt"Eviction threshold: {best.cacheGenome.evictionThreshold * 100:.1f}%"
+  echo fmt"Critical path priority: {best.cacheGenome.criticalPathPriority * 100:.1f}%"

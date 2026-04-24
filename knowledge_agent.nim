@@ -52,7 +52,7 @@ type
 type
   KnowledgeAgent* = ref object of Agent
     knowledgeBase*: KnowledgeBase
-    genome*: KnowledgeGenome
+    knowledgeGenome*: KnowledgeGenome
     learningRate*: float
     forgettingRate*: float
     synthesisAttempts*: int
@@ -78,18 +78,18 @@ proc newKnowledgeBase*(): KnowledgeBase =
   result.totalConcepts = 0
   result.averageConfidence = 0.0
 
-proc hash*(concept: Concept): Hash =
+proc hash*(cpt: Concept): Hash =
   ## Hash basado en contenido para detectar duplicados
   var h: Hash = 0
-  h = h !& hash(concept.conceptType)
-  h = h !& hash(concept.content)
+  h = h !& hash(cpt.conceptType)
+  h = h !& hash(cpt.content)
   result = !$h
 
 proc addConcept*(kb: KnowledgeBase, conceptType: ConceptType, 
                  content: string, confidence: float = 0.5,
                  parents: seq[int] = @[], tags: seq[string] = @[]): int =
   ## Agrega un nuevo concepto a la base de conocimiento
-  let concept = Concept(
+  let cpt = Concept(
     id: kb.nextConceptId,
     conceptType: conceptType,
     content: content,
@@ -103,7 +103,7 @@ proc addConcept*(kb: KnowledgeBase, conceptType: ConceptType,
   )
   
   # Calcular hash después de crear el concepto
-  var mutableConcept = concept
+  var mutableConcept = cpt
   mutableConcept.hash = mutableConcept.hash()
   
   # Verificar si ya existe (deduplicación)
@@ -127,9 +127,9 @@ proc getRelatedConcepts*(kb: KnowledgeBase, conceptId: int,
                          minStrength: float = 0.3): seq[int] =
   ## Obtiene conceptos relacionados
   result = @[]
-  for (id1, id2), strength in kb.relationMatrix:
-    if id1 == conceptId and strength >= minStrength:
-      result.add(id2)
+  for key, strength in kb.relationMatrix:
+    if key[0] == conceptId and strength >= minStrength:
+      result.add(key[1])
 
 proc strengthenRelation*(kb: KnowledgeBase, id1, id2: int, amount: float = 0.1) =
   ## Fortalece la relación entre dos conceptos
@@ -143,8 +143,8 @@ proc pruneConcepts*(kb: KnowledgeBase, minUtility: float = 0.1, maxAge: int = 10
   ## Elimina conceptos poco útiles o muy antiguos
   var toRemove: seq[int] = @[]
   
-  for id, concept in kb.concepts:
-    if concept.utility < minUtility and concept.age > maxAge:
+  for id, cpt in kb.concepts:
+    if cpt.utility < minUtility and cpt.age > maxAge:
       toRemove.add(id)
   
   for id in toRemove:
@@ -166,7 +166,7 @@ proc newKnowledgeAgent*(id: int): KnowledgeAgent =
   result.conceptsCreated = 0
   result.conceptsPruned = 0
   
-  result.genome = KnowledgeGenome(
+  result.knowledgeGenome = KnowledgeGenome(
     strategies: @["analogy", "combination", "abstraction", "specialization"],
     biases: @[randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1)],
     synthesisRate: randomFloat(0.1, 0.5),
@@ -227,7 +227,7 @@ proc synthesizeByAnalogy*(agent: KnowledgeAgent): bool =
   
   # Crear analogía
   let analogyContent = "Si '" & c1.content & "' es como '" & c2.content & "', entonces..."
-  let confidence = (c1.confidence + c2.confidence) / 2.0 * agent.genome.creativity
+  let confidence = (c1.confidence + c2.confidence) / 2.0 * agent.knowledgeGenome.creativity
   
   discard agent.knowledgeBase.addConcept(
     ctAnalogy, 
@@ -279,8 +279,8 @@ proc synthesizeByAbstraction*(agent: KnowledgeAgent): bool =
   # Encontrar conceptos con tags comunes
   var tagGroups = initTable[string, seq[int]]()
   
-  for id, concept in agent.knowledgeBase.concepts:
-    for tag in concept.tags:
+  for id, cpt in agent.knowledgeBase.concepts:
+    for tag in cpt.tags:
       if tag notin tagGroups:
         tagGroups[tag] = @[]
       tagGroups[tag].add(id)
@@ -298,7 +298,7 @@ proc synthesizeByAbstraction*(agent: KnowledgeAgent): bool =
   
   # Crear abstracción
   let abstractContent = "Patrón abstracto en dominio: " & bestTag
-  let avgConfidence = agent.genome.criticalThinking * 0.7
+  let avgConfidence = agent.knowledgeGenome.criticalThinking * 0.7
   
   discard agent.knowledgeBase.addConcept(
     ctTheory,
@@ -315,8 +315,8 @@ proc synthesizeBySpecialization*(agent: KnowledgeAgent): bool =
   ## Especializa un concepto general en uno más específico
   # Buscar teorías o patrones
   var candidates: seq[int] = @[]
-  for id, concept in agent.knowledgeBase.concepts:
-    if concept.conceptType in [ctTheory, ctPattern]:
+  for id, cpt in agent.knowledgeBase.concepts:
+    if cpt.conceptType in [ctTheory, ctPattern]:
       candidates.add(id)
   
   if candidates.len == 0:
@@ -352,8 +352,8 @@ method update*(agent: KnowledgeAgent, env: Environment, dt: float) =
   # Intentar síntesis de conocimiento según estrategias
   var synthesized = false
   
-  for strategy in agent.genome.strategies:
-    if rand(1.0) < agent.genome.synthesisRate:
+  for strategy in agent.knowledgeGenome.strategies:
+    if rand(1.0) < agent.knowledgeGenome.synthesisRate:
       case strategy:
       of "analogy":
         synthesized = synthesizeByAnalogy(agent) or synthesized
@@ -386,11 +386,11 @@ method update*(agent: KnowledgeAgent, env: Environment, dt: float) =
     var bestConcept: Concept
     var bestScore = -Inf
     
-    for concept in agent.knowledgeBase.concepts.values:
-      let score = concept.confidence * concept.utility
+    for cpt in agent.knowledgeBase.concepts.values:
+      let score = cpt.confidence * cpt.utility
       if score > bestScore:
         bestScore = score
-        bestConcept = concept
+        bestConcept = cpt
     
     if bestScore > 0.5:
       discard knowledgeEnv.sharedKnowledge.addConcept(
@@ -442,16 +442,16 @@ method evaluateFitness*(agent: KnowledgeAgent, env: Environment): float =
   # Bonus por diversidad de conocimiento
   var typeCount = 0
   for conceptType in ConceptType:
-    for concept in agent.knowledgeBase.concepts.values:
-      if concept.conceptType == conceptType:
+    for cpt in agent.knowledgeBase.concepts.values:
+      if cpt.conceptType == conceptType:
         inc typeCount
         break
   result += typeCount.float * 10.0
   
   # Bonus por conocimiento de alta confianza
   var highConfidenceCount = 0
-  for concept in agent.knowledgeBase.concepts.values:
-    if concept.confidence > 0.7:
+  for cpt in agent.knowledgeBase.concepts.values:
+    if cpt.confidence > 0.7:
       inc highConfidenceCount
   result += highConfidenceCount.float * 3.0
   
@@ -464,24 +464,24 @@ method evaluateFitness*(agent: KnowledgeAgent, env: Environment): float =
 proc mutateKnowledgeGenome*(agent: KnowledgeAgent, rate: float) =
   ## Muta el genoma de estrategias de conocimiento
   if rand(1.0) < rate:
-    agent.genome.synthesisRate += randomFloat(-0.1, 0.1)
-    agent.genome.synthesisRate = clamp(agent.genome.synthesisRate, 0.0, 1.0)
+    agent.knowledgeGenome.synthesisRate += randomFloat(-0.1, 0.1)
+    agent.knowledgeGenome.synthesisRate = clamp(agent.knowledgeGenome.synthesisRate, 0.0, 1.0)
   
   if rand(1.0) < rate:
-    agent.genome.criticalThinking += randomFloat(-0.1, 0.1)
-    agent.genome.criticalThinking = clamp(agent.genome.criticalThinking, 0.0, 1.0)
+    agent.knowledgeGenome.criticalThinking += randomFloat(-0.1, 0.1)
+    agent.knowledgeGenome.criticalThinking = clamp(agent.knowledgeGenome.criticalThinking, 0.0, 1.0)
   
   if rand(1.0) < rate:
-    agent.genome.creativity += randomFloat(-0.1, 0.1)
-    agent.genome.creativity = clamp(agent.genome.creativity, 0.0, 1.0)
+    agent.knowledgeGenome.creativity += randomFloat(-0.1, 0.1)
+    agent.knowledgeGenome.creativity = clamp(agent.knowledgeGenome.creativity, 0.0, 1.0)
   
   if rand(1.0) < rate * 0.3:
     # Mutar estrategias
     let strategies = @["analogy", "combination", "abstraction", "specialization", "induction", "deduction"]
-    if agent.genome.strategies.len > 0 and rand(1.0) < 0.5:
-      agent.genome.strategies.del(rand(agent.genome.strategies.len - 1))
+    if agent.knowledgeGenome.strategies.len > 0 and rand(1.0) < 0.5:
+      agent.knowledgeGenome.strategies.del(rand(agent.knowledgeGenome.strategies.len - 1))
     if rand(1.0) < 0.5:
-      agent.genome.strategies.add(strategies[rand(strategies.len - 1)])
+      agent.knowledgeGenome.strategies.add(strategies[rand(strategies.len - 1)])
   
   if rand(1.0) < rate:
     agent.learningRate += randomFloat(-0.05, 0.05)
@@ -496,18 +496,18 @@ proc crossoverKnowledgeAgents*(parent1, parent2: KnowledgeAgent, nextId: int): K
   result = newKnowledgeAgent(nextId)
   
   # Heredar estrategias de ambos padres
-  result.genome.strategies = @[]
-  for strategy in parent1.genome.strategies:
+  result.knowledgeGenome.strategies = @[]
+  for strategy in parent1.knowledgeGenome.strategies:
     if rand(1.0) < 0.5:
-      result.genome.strategies.add(strategy)
-  for strategy in parent2.genome.strategies:
-    if rand(1.0) < 0.5 and strategy notin result.genome.strategies:
-      result.genome.strategies.add(strategy)
+      result.knowledgeGenome.strategies.add(strategy)
+  for strategy in parent2.knowledgeGenome.strategies:
+    if rand(1.0) < 0.5 and strategy notin result.knowledgeGenome.strategies:
+      result.knowledgeGenome.strategies.add(strategy)
   
   # Promediar parámetros numéricos
-  result.genome.synthesisRate = (parent1.genome.synthesisRate + parent2.genome.synthesisRate) / 2.0
-  result.genome.criticalThinking = (parent1.genome.criticalThinking + parent2.genome.criticalThinking) / 2.0
-  result.genome.creativity = (parent1.genome.creativity + parent2.genome.creativity) / 2.0
+  result.knowledgeGenome.synthesisRate = (parent1.knowledgeGenome.synthesisRate + parent2.knowledgeGenome.synthesisRate) / 2.0
+  result.knowledgeGenome.criticalThinking = (parent1.knowledgeGenome.criticalThinking + parent2.knowledgeGenome.criticalThinking) / 2.0
+  result.knowledgeGenome.creativity = (parent1.knowledgeGenome.creativity + parent2.knowledgeGenome.creativity) / 2.0
   result.learningRate = (parent1.learningRate + parent2.learningRate) / 2.0
   result.forgettingRate = (parent1.forgettingRate + parent2.forgettingRate) / 2.0
   

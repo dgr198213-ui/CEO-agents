@@ -15,7 +15,7 @@
 
 import cache_strategy_agent, notification_agent, sync_agent
 import agent_base, evolution_core
-import std/[random, strformat, sequtils, times, algorithm]
+import std/[random, strformat, sequtils, times, algorithm, tables]
 
 ## ───────────────────────────────────────────────────────────────────────────
 ## Sistema PWA Integrado
@@ -69,7 +69,7 @@ proc initializeSystem*(system: var PWASystem,
   # Poblar estado inicial del servidor
   for i in 0..<(syncOpCount div 2):
     let record = generateDataRecord(i, clientId = 0, currentTime = -100.0)
-    system.syncAgent.serverState[record.id] = record
+    tables.`[]=`(system.syncAgent.serverState, record.id, record)
   
   system.totalUsers = userCount
   system.activeUsers = users.countIt(not it.optedOut)
@@ -77,9 +77,9 @@ proc initializeSystem*(system: var PWASystem,
 proc updateSystem*(system: var PWASystem, iterations: int) =
   ## Actualiza todos los subsistemas del PWA
   for i in 0..<iterations:
-    system.cacheAgent.update(1.0)
-    system.notifAgent.update(1.0)
-    system.syncAgent.update(1.0)
+    system.cacheAgent.update(nil, 1.0)
+    system.notifAgent.update(nil, 1.0)
+    system.syncAgent.update(nil, 1.0)
 
 proc calculateSystemMetrics*(system: var PWASystem) =
   ## Calcula métricas globales del sistema
@@ -94,9 +94,9 @@ proc calculateSystemMetrics*(system: var PWASystem) =
   system.activeUsers = system.notifAgent.users.countIt(not it.optedOut)
   
   # User satisfaction: combinación de todos los subsistemas
-  let cacheQuality = system.cacheAgent.fitness() / 100.0  # Normalizado
-  let notifQuality = system.notifAgent.fitness() / 100.0
-  let syncQuality = system.syncAgent.fitness() / 100.0
+  let cacheQuality = system.cacheAgent.evaluateFitness(nil) / 100.0  # Normalizado
+  let notifQuality = system.notifAgent.evaluateFitness(nil) / 100.0
+  let syncQuality = system.syncAgent.evaluateFitness(nil) / 100.0
   
   system.userSatisfaction = (
     cacheQuality * 0.35 +      # 35% caché (performance percibida)
@@ -105,8 +105,8 @@ proc calculateSystemMetrics*(system: var PWASystem) =
   )
   
   # System efficiency: recursos usados vs valor entregado
-  let cacheEfficiency = if system.cacheAgent.genome.maxCacheSize > 0:
-    1.0 - (system.cacheAgent.totalCacheSize / system.cacheAgent.genome.maxCacheSize)
+  let cacheEfficiency = if system.cacheAgent.cacheGenome.maxCacheSize > 0:
+    1.0 - (system.cacheAgent.totalCacheSize / system.cacheAgent.cacheGenome.maxCacheSize)
   else:
     0.0
   
@@ -124,6 +124,17 @@ proc systemFitness*(system: var PWASystem): float =
 ## ───────────────────────────────────────────────────────────────────────────
 ## Evolución Co-adaptativa de Subsistemas PWA
 ## ───────────────────────────────────────────────────────────────────────────
+
+
+proc tournamentSelect(scores: seq[tuple[system: PWASystem, fitness: float]], 
+                     tournamentSize: int): tuple[system: PWASystem, fitness: float] =
+  ## Selección por torneo para sistemas PWA
+  var best = scores[rand(scores.len - 1)]
+  for i in 1..<tournamentSize:
+    let candidate = scores[rand(scores.len - 1)]
+    if candidate.fitness > best.fitness:
+      best = candidate
+  result = best
 
 proc evolvePWASystems*(populationSize: int = 20, 
                       generations: int = 30,
@@ -149,9 +160,9 @@ proc evolvePWASystems*(populationSize: int = 20,
   
   for i in 0..<populationSize:
     var system = newPWASystem(
-      randomGenome(),  # CacheGenome
-      randomGenome(),  # NotificationGenome
-      randomGenome()   # SyncGenome
+      cache_strategy_agent.randomGenome(),  # CacheGenome
+      notification_agent.randomGenome(),    # NotificationGenome
+      sync_agent.randomGenome()             # SyncGenome
     )
     system.initializeSystem(resourceCount, userCount, syncOpCount)
     population.add(system)
@@ -210,24 +221,24 @@ proc evolvePWASystems*(populationSize: int = 20,
         
         # Crossover de genomas
         var childCacheGenome = crossoverGenomes(
-          p1.system.cacheAgent.genome,
-          p2.system.cacheAgent.genome
+          p1.system.cacheAgent.cacheGenome,
+          p2.system.cacheAgent.cacheGenome
         )
         
-        var childNotifGenome = crossoverGenomes(
-          p1.system.notifAgent.genome,
-          p2.system.notifAgent.genome
+        var childNotifGenome = notification_agent.crossoverGenomes(
+          p1.system.notifAgent.notifGenome,
+          p2.system.notifAgent.notifGenome
         )
         
-        var childSyncGenome = crossoverGenomes(
-          p1.system.syncAgent.genome,
-          p2.system.syncAgent.genome
+        var childSyncGenome = sync_agent.crossoverGenomes(
+          p1.system.syncAgent.syncGenome,
+          p2.system.syncAgent.syncGenome
         )
         
         # Mutación
-        mutateGenome(childCacheGenome, 0.12)
-        mutateGenome(childNotifGenome, 0.12)
-        mutateGenome(childSyncGenome, 0.12)
+        cache_strategy_agent.mutateGenome(childCacheGenome, 0.12)
+        notification_agent.mutateGenome(childNotifGenome, 0.12)
+        sync_agent.mutateGenome(childSyncGenome, 0.12)
         
         # Crear nuevo sistema
         var child = newPWASystem(childCacheGenome, childNotifGenome, childSyncGenome)
@@ -342,7 +353,7 @@ proc createBaselineSystem*(strategy: string): PWASystem =
   
   else:
     # Balanced baseline
-    result = newPWASystem(randomGenome(), randomGenome(), randomGenome())
+    result = newPWASystem(cache_strategy_agent.randomGenome(), notification_agent.randomGenome(), sync_agent.randomGenome())
 
 ## ═══════════════════════════════════════════════════════════════════════════
 ## Main

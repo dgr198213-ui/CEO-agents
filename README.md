@@ -1,6 +1,26 @@
-# Evolutionary Agents in Nim 🧬
+# CEO-Agents — Sistema de Agentes Evolutivos 🧬
 
-A comprehensive framework for evolutionary computation and multi-agent systems implemented in Nim.
+> **Cognitive Evolutionary Orchestrator** — Un framework de agentes inteligentes basado en algoritmos evolutivos, neuroevolución y sistemas multi-agente, implementado en Nim 2.x.
+
+[![Nim 2.0+](https://img.shields.io/badge/Nim-2.0%2B-orange)](https://nim-lang.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+---
+
+## Instalación Rápida
+
+```bash
+git clone https://github.com/dgr198213-ui/CEO-agents.git
+cd CEO-agents
+chmod +x install.sh
+./install.sh
+```
+
+Ver [INSTALL.md](INSTALL.md) para instrucciones detalladas de instalación.
+
+**Requisitos:** Nim 2.0+, GCC 9.0+, Linux/macOS/Windows(WSL2)
+
+---
 
 ## 📚 Overview
 
@@ -10,6 +30,9 @@ This framework provides modular, efficient implementations of:
 - **Swarm Intelligence** (flocking, foraging, collective behavior)
 - **Coevolutionary Systems** (predator-prey, competitive evolution)
 - **Generic Evolutionary Algorithms** (selection, crossover, mutation)
+- **CEO Orchestrator** (multi-agent software development coordination)
+- **PWA Agents** (Progressive Web App optimization agents)
+- **Knowledge Agents** (evolutionary knowledge graph management)
 
 Based on cutting-edge research in:
 - EvoAgent framework (2024)
@@ -24,25 +47,42 @@ Based on cutting-edge research in:
 ### Core Modules
 
 ```
-evolutionary_agents/
-├── agent_base.nim          # Base types and interfaces
-├── neuro_agent.nim         # Neuroevolutionary agents
-├── swarm_agent.nim         # Swarm/collective behavior agents
-├── coevo_agent.nim         # Coevolutionary agents
-├── evolution_core.nim      # Generic EA operations
-├── example_foraging.nim    # Foraging task demo
-├── example_coevolution.nim # Predator-prey demo
-└── example_swarm.nim       # Flocking demo
+CEO-agents/
+├── agent_base.nim              # Tipos base: Agent, Environment, Vector2D
+├── evolution_core.nim          # Motor evolutivo genérico
+├── neuro_agent.nim             # NeuroAgent con red neuronal NEAT-inspired
+├── swarm_agent.nim             # SwarmAgent: roles y comportamientos emergentes
+├── coevo_agent.nim             # CoevoAgent: co-evolución predador-presa
+├── knowledge_agent.nim         # KnowledgeAgent: grafos de conocimiento evolutivos
+├── ceo_agent.nim               # CEOAgent: orquestador de proyectos de software
+├── stack_agents.nim            # StackAgent: agentes especializados
+├── cache_strategy_agent.nim    # Agente PWA: estrategias de caché
+├── notification_agent.nim      # Agente PWA: notificaciones push
+├── sync_agent.nim              # Agente PWA: sincronización offline
+├── example_integrated_ceo_stack.nim  # CEO + Stack Agents
+├── example_swarm.nim           # Swarm Intelligence
+├── example_knowledge.nim       # Knowledge Agents
+├── example_coevolution.nim     # Co-evolución predador-presa
+├── example_foraging.nim        # Neuroevolución foraging
+├── example_pwa_integrated.nim  # Sistema PWA evolutivo
+├── install.sh                  # Instalación automática
+├── build.sh                    # Script de compilación
+└── CEO.nimble                  # Configuración del paquete Nim
 ```
 
 ### Type Hierarchy
 
 ```nim
-Agent (base)
-├── NeuroAgent          # Neural network controller
-│   ├── ForagingAgent   # Resource gathering specialist
-│   └── CoevoAgent      # Predator/prey variant
-└── SwarmAgent          # Local interaction-based
+Agent (agent_base.nim)
+├── NeuroAgent (neuro_agent.nim)
+│   ├── SwarmAgent (swarm_agent.nim)
+│   ├── CoevoAgent (coevo_agent.nim)
+│   └── KnowledgeAgent (knowledge_agent.nim)
+├── CEOAgent (ceo_agent.nim)
+├── StackAgent (stack_agents.nim)
+├── CacheStrategyAgent (cache_strategy_agent.nim)
+├── NotificationAgent (notification_agent.nim)
+└── SyncAgent (sync_agent.nim)
 ```
 
 ---

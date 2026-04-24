@@ -17,7 +17,7 @@
 ## - Mecanismo de aprendizaje por experiencia
 ## - Evaluación de fitness por tareas completadas
 
-import random, math, tables, strutils, sequtils, algorithm
+import random, math, tables, strutils, sequtils, algorithm, strformat
 
 randomize()
 

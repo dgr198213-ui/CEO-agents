@@ -4,7 +4,7 @@
 # Demonstrates competitive coevolution between predators and prey
 
 import agent_base, coevo_agent, evolution_core
-import random, sequtils
+import strformat, random, sequtils
 
 proc runCoevolutionExperiment() =
   randomize()
@@ -88,20 +88,20 @@ proc runCoevolutionExperiment() =
     let preyStats = computeStats(preyPop)
     
     echo "  Predators:"
-    echo "    Best: ", predStats.bestFitness.formatFloat(ffDecimal, 1)
-    echo "    Avg:  ", predStats.avgFitness.formatFloat(ffDecimal, 1)
+    echo "    Best: ", fmt"{predStats.bestFitness:.1f}"
+    echo "    Avg:  ", fmt"{predStats.avgFitness:.1f}"
     echo "    Best kills: ", CoevoAgent(predatorPop.bestIndividual).kills
     
     echo "  Prey:"
-    echo "    Best: ", preyStats.bestFitness.formatFloat(ffDecimal, 1)
-    echo "    Avg:  ", preyStats.avgFitness.formatFloat(ffDecimal, 1)
+    echo "    Best: ", fmt"{preyStats.bestFitness:.1f}"
+    echo "    Avg:  ", fmt"{preyStats.avgFitness:.1f}"
     echo "    Best escapes: ", CoevoAgent(preyPop.bestIndividual).escapes
     echo ""
     
     # Evolve both populations
     if gen < params.maxGenerations - 1:
-      predatorPop = evolvePopulation(predatorPop, params, 1000 + gen * 100)
-      preyPop = evolvePopulation(preyPop, params, 2000 + gen * 100)
+      predatorPop = evolveCoevoPopulation(predatorPop, params, 1000 + gen * 100)
+      preyPop = evolveCoevoPopulation(preyPop, params, 2000 + gen * 100)
   
   echo "🎉 Coevolution complete!"
 

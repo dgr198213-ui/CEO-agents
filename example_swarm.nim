@@ -4,7 +4,7 @@
 # Demonstrates emergent collective behavior in swarm agents
 
 import agent_base, swarm_agent
-import random, sequtils
+import random, sequtils, strformat
 
 proc runSwarmDemo() =
   randomize()
@@ -63,7 +63,7 @@ proc runSwarmDemo() =
           resourcesCollected += 1
       
       echo "Step ", step + 1, ":"
-      echo "  Total fitness: ", totalFitness.formatFloat(ffDecimal, 1)
+      echo &"  Total fitness: {totalFitness:.1f}"
       echo "  Resources collected: ", resourcesCollected, " / ", env.resources.len
   
   echo "\n🎉 Simulation complete!"
@@ -80,8 +80,8 @@ proc runSwarmDemo() =
       bestAgent = SwarmAgent(agent)
   
   echo "\nFinal Results:"
-  echo "  Average fitness: ", (totalFitness / float(numAgents)).formatFloat(ffDecimal, 2)
-  echo "  Best fitness: ", bestFitness.formatFloat(ffDecimal, 2)
+  echo &"  Average fitness: {(totalFitness / float(numAgents)):.2f}"
+  echo &"  Best fitness: {bestFitness:.2f}"
   echo "  Best agent role: ", bestAgent.role
   echo "  Best agent behavior: ", bestAgent.behavior
 

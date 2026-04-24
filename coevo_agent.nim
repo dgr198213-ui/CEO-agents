@@ -3,7 +3,7 @@
 # ============================================================================
 # Implements predator-prey dynamics and competitive coevolution
 
-import agent_base, neuro_agent
+import agent_base, neuro_agent, evolution_core
 import random, sequtils, algorithm, math
 
 # ============================================================================
@@ -312,3 +312,89 @@ proc coevolve*(predators, prey: var seq[CoevoAgent], params: EvolutionParams) =
 export CoevoType, CoevoAgent, CoevoEnvironment
 export newCoevoAgent, newCoevoEnvironment
 export handleInteractions, coevolve
+
+# ============================================================================
+# Crossover especializado para CoevoAgent
+# ============================================================================
+proc crossoverCoevoAgents*(parent1, parent2: CoevoAgent, nextId: int): CoevoAgent =
+  ## Crea un descendiente CoevoAgent desde dos padres CoevoAgent
+  result = CoevoAgent(
+    id: nextId,
+    coevoType: parent1.coevoType,
+    network: crossover(parent1.network, parent2.network),
+    state: AgentState(
+      position: Vector2D(x: 0.0, y: 0.0),
+      velocity: Vector2D(x: 0.0, y: 0.0),
+      energy: 100.0,
+      age: 0,
+      fitness: 0.0
+    ),
+    species: parent1.species,
+    health: (parent1.health + parent2.health) / 2.0,
+    attackPower: (parent1.attackPower + parent2.attackPower) / 2.0,
+    defenseRating: (parent1.defenseRating + parent2.defenseRating) / 2.0,
+    sensorRange: (parent1.sensorRange + parent2.sensorRange) / 2.0,
+    kills: 0,
+    escapes: 0
+  )
+
+export crossoverCoevoAgents
+
+
+# ============================================================================
+# Evolución especializada para CoevoAgent
+# ============================================================================
+proc evolveCoevoPopulation*(pop: Population[CoevoAgent], params: EvolutionParams,
+                             nextIdStart: int): Population[CoevoAgent] =
+  ## Evoluciona una población de CoevoAgents preservando el tipo de coevolución
+  result = newPopulation[CoevoAgent]()
+  result.generation = pop.generation + 1
+  
+  var nextId = nextIdStart
+  
+  # Elitismo: conservar los mejores
+  var sorted = pop.individuals
+  sorted.sort(proc(a, b: CoevoAgent): int =
+    cmp(b.state.fitness, a.state.fitness)
+  )
+  
+  for i in 0..<params.eliteSize:
+    if i < sorted.len:
+      result.individuals.add(sorted[i])
+  
+  # Generar descendencia
+  while result.individuals.len < params.populationSize:
+    let parent1 = tournamentSelection(pop, params.tournamentSize)
+    let parent2 = tournamentSelection(pop, params.tournamentSize)
+    
+    var offspring: CoevoAgent
+    
+    if rand(1.0) < params.crossoverRate:
+      offspring = crossoverCoevoAgents(parent1, parent2, nextId)
+    else:
+      # Clonar padre con nuevo estado
+      offspring = CoevoAgent(
+        id: nextId,
+        coevoType: parent1.coevoType,
+        network: parent1.network,
+        state: AgentState(
+          position: Vector2D(x: 0.0, y: 0.0),
+          velocity: Vector2D(x: 0.0, y: 0.0),
+          energy: 100.0,
+          age: 0,
+          fitness: 0.0
+        ),
+        species: parent1.species,
+        health: 100.0,
+        attackPower: parent1.attackPower,
+        defenseRating: parent1.defenseRating,
+        sensorRange: parent1.sensorRange,
+        kills: 0,
+        escapes: 0
+      )
+    
+    mutateNeuroAgent(offspring, params)
+    result.individuals.add(offspring)
+    inc nextId
+
+export evolveCoevoPopulation

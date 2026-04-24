@@ -12,7 +12,7 @@
 ## - Monitoreo de rendimiento y re-asignación dinámica
 ## - Aprendizaje de patrones de éxito mediante GA
 
-import random, math, tables, strutils, sequtils, algorithm
+import random, math, tables, strutils, sequtils, algorithm, strformat
 
 randomize()
 
