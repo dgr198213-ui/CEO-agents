@@ -1,32 +1,3 @@
-# CEO-agents
-
-Buscar archivos y carpetas
-1.0 MB / 1.0 GB
-Actualizar
-Todos los archivos
-Genspark
-sandbox
-
-
-
-Actualizado
-
-
-
-Estado completo
-
-
-
-ceo_stack_agents_project (10 elementos)
-
-Exitoso (66.0 KB)
-INDEX.md
-
-
-
-
-
-
 🧬 Evolutionary Agents Framework - File Index
 📁 Project Structure
 Copyevolutionary_agents/
