@@ -1,0 +1,1004 @@
+🐺🐰 Predator-Prey Coevolution
+===============================
+
+Generation 1:
+  Predators:
+    Best: 1050.0
+    Avg:  498.3
+    Best kills: 19
+  Prey:
+    Best: 430.0
+    Avg:  -271.6
+    Best escapes: 23
+
+Generation 2:
+  Predators:
+    Best: 1000.0
+    Avg:  475.0
+    Best kills: 18
+  Prey:
+    Best: 270.0
+    Avg:  -265.1
+    Best escapes: 14
+
+Generation 3:
+  Predators:
+    Best: 1100.0
+    Avg:  546.7
+    Best kills: 20
+  Prey:
+    Best: 220.0
+    Avg:  -347.1
+    Best escapes: 23
+
+Generation 4:
+  Predators:
+    Best: 800.0
+    Avg:  441.7
+    Best kills: 14
+  Prey:
+    Best: 390.0
+    Avg:  -188.5
+    Best escapes: 13
+
+Generation 5:
+  Predators:
+    Best: 1300.0
+    Avg:  513.3
+    Best kills: 24
+  Prey:
+    Best: 300.0
+    Avg:  -323.6
+    Best escapes: 8
+
+Generation 6:
+  Predators:
+    Best: 1600.0
+    Avg:  633.3
+    Best kills: 30
+  Prey:
+    Best: 360.0
+    Avg:  -534.4
+    Best escapes: 10
+
+Generation 7:
+  Predators:
+    Best: 1900.0
+    Avg:  661.7
+    Best kills: 36
+  Prey:
+    Best: 350.0
+    Avg:  -548.9
+    Best escapes: 9
+
+Generation 8:
+  Predators:
+    Best: 1350.0
+    Avg:  626.7
+    Best kills: 25
+  Prey:
+    Best: 330.0
+    Avg:  -467.6
+    Best escapes: 9
+
+Generation 9:
+  Predators:
+    Best: 2650.0
+    Avg:  1146.7
+    Best kills: 51
+  Prey:
+    Best: 470.0
+    Avg:  -1259.5
+    Best escapes: 14
+
+Generation 10:
+  Predators:
+    Best: 2750.0
+    Avg:  1845.0
+    Best kills: 53
+  Prey:
+    Best: 250.0
+    Avg:  -2367.0
+    Best escapes: 6
+
+Generation 11:
+  Predators:
+    Best: 1800.0
+    Avg:  1273.3
+    Best kills: 34
+  Prey:
+    Best: 360.0
+    Avg:  -1515.3
+    Best escapes: 9
+
+Generation 12:
+  Predators:
+    Best: 2050.0
+    Avg:  1448.3
+    Best kills: 39
+  Prey:
+    Best: 370.0
+    Avg:  -1708.9
+    Best escapes: 9
+
+Generation 13:
+  Predators:
+    Best: 2100.0
+    Avg:  1190.0
+    Best kills: 40
+  Prey:
+    Best: 270.0
+    Avg:  -1376.8
+    Best escapes: 6
+
+Generation 14:
+  Predators:
+    Best: 3450.0
+    Avg:  1816.7
+    Best kills: 67
+  Prey:
+    Best: 340.0
+    Avg:  -2324.7
+    Best escapes: 47
+
+Generation 15:
+  Predators:
+    Best: 2250.0
+    Avg:  1720.0
+    Best kills: 43
+  Prey:
+    Best: 340.0
+    Avg:  -2076.7
+    Best escapes: 10
+
+Generation 16:
+  Predators:
+    Best: 2600.0
+    Avg:  1846.7
+    Best kills: 50
+  Prey:
+    Best: 290.0
+    Avg:  -2366.1
+    Best escapes: 7
+
+Generation 17:
+  Predators:
+    Best: 2950.0
+    Avg:  1753.3
+    Best kills: 57
+  Prey:
+    Best: 380.0
+    Avg:  -2253.4
+    Best escapes: 9
+
+Generation 18:
+  Predators:
+    Best: 3000.0
+    Avg:  1730.0
+    Best kills: 58
+  Prey:
+    Best: 370.0
+    Avg:  -2160.4
+    Best escapes: 9
+
+Generation 19:
+  Predators:
+    Best: 3350.0
+    Avg:  2090.0
+    Best kills: 65
+  Prey:
+    Best: 340.0
+    Avg:  -2662.7
+    Best escapes: 8
+
+Generation 20:
+  Predators:
+    Best: 2750.0
+    Avg:  1995.0
+    Best kills: 53
+  Prey:
+    Best: 330.0
+    Avg:  -2586.5
+    Best escapes: 8
+
+Generation 21:
+  Predators:
+    Best: 2700.0
+    Avg:  1535.0
+    Best kills: 52
+  Prey:
+    Best: 330.0
+    Avg:  -1851.5
+    Best escapes: 8
+
+Generation 22:
+  Predators:
+    Best: 2800.0
+    Avg:  1590.0
+    Best kills: 54
+  Prey:
+    Best: 309.5
+    Avg:  -1965.2
+    Best escapes: 10
+
+Generation 23:
+  Predators:
+    Best: 3550.0
+    Avg:  2355.0
+    Best kills: 69
+  Prey:
+    Best: 320.0
+    Avg:  -3240.1
+    Best escapes: 10
+
+Generation 24:
+  Predators:
+    Best: 7550.0
+    Avg:  4373.3
+    Best kills: 149
+  Prey:
+    Best: 284.7
+    Avg:  -6274.1
+    Best escapes: 9
+
+Generation 25:
+  Predators:
+    Best: 2750.0
+    Avg:  2115.0
+    Best kills: 53
+  Prey:
+    Best: 350.0
+    Avg:  -2755.2
+    Best escapes: 9
+
+Generation 26:
+  Predators:
+    Best: 3100.0
+    Avg:  2216.7
+    Best kills: 60
+  Prey:
+    Best: 240.7
+    Avg:  -2901.3
+    Best escapes: 125
+
+Generation 27:
+  Predators:
+    Best: 3750.0
+    Avg:  2320.0
+    Best kills: 73
+  Prey:
+    Best: 280.0
+    Avg:  -3010.7
+    Best escapes: 6
+
+Generation 28:
+  Predators:
+    Best: 9900.0
+    Avg:  4261.7
+    Best kills: 196
+  Prey:
+    Best: 380.0
+    Avg:  -6152.0
+    Best escapes: 10
+
+Generation 29:
+  Predators:
+    Best: 10450.0
+    Avg:  6448.3
+    Best kills: 207
+  Prey:
+    Best: 267.4
+    Avg:  -9432.0
+    Best escapes: 25
+
+Generation 30:
+  Predators:
+    Best: 10200.0
+    Avg:  4463.3
+    Best kills: 202
+  Prey:
+    Best: 310.0
+    Avg:  -6339.0
+    Best escapes: 8
+
+Generation 31:
+  Predators:
+    Best: 11300.0
+    Avg:  4620.0
+    Best kills: 224
+  Prey:
+    Best: 230.0
+    Avg:  -6510.7
+    Best escapes: 5
+
+Generation 32:
+  Predators:
+    Best: 6150.0
+    Avg:  3323.3
+    Best kills: 121
+  Prey:
+    Best: 380.0
+    Avg:  -4568.7
+    Best escapes: 36
+
+Generation 33:
+  Predators:
+    Best: 3600.0
+    Avg:  2736.7
+    Best kills: 70
+  Prey:
+    Best: 330.0
+    Avg:  -3790.9
+    Best escapes: 10
+
+Generation 34:
+  Predators:
+    Best: 3450.0
+    Avg:  2206.7
+    Best kills: 67
+  Prey:
+    Best: 342.5
+    Avg:  -2818.1
+    Best escapes: 39
+
+Generation 35:
+  Predators:
+    Best: 3050.0
+    Avg:  1828.3
+    Best kills: 59
+  Prey:
+    Best: 420.0
+    Avg:  -2365.7
+    Best escapes: 14
+
+Generation 36:
+  Predators:
+    Best: 2600.0
+    Avg:  1276.7
+    Best kills: 50
+  Prey:
+    Best: 310.5
+    Avg:  -1463.1
+    Best escapes: 7
+
+Generation 37:
+  Predators:
+    Best: 6150.0
+    Avg:  2656.7
+    Best kills: 121
+  Prey:
+    Best: 350.0
+    Avg:  -3589.4
+    Best escapes: 8
+
+Generation 38:
+  Predators:
+    Best: 3600.0
+    Avg:  2415.0
+    Best kills: 70
+  Prey:
+    Best: 280.0
+    Avg:  -3190.3
+    Best escapes: 7
+
+Generation 39:
+  Predators:
+    Best: 2000.0
+    Avg:  1243.3
+    Best kills: 38
+  Prey:
+    Best: 340.0
+    Avg:  -1445.8
+    Best escapes: 8
+
+Generation 40:
+  Predators:
+    Best: 2750.0
+    Avg:  1720.0
+    Best kills: 53
+  Prey:
+    Best: 310.0
+    Avg:  -2151.3
+    Best escapes: 9
+
+Generation 41:
+  Predators:
+    Best: 5250.0
+    Avg:  2401.7
+    Best kills: 103
+  Prey:
+    Best: 280.0
+    Avg:  -3264.8
+    Best escapes: 16
+
+Generation 42:
+  Predators:
+    Best: 2550.0
+    Avg:  1560.0
+    Best kills: 49
+  Prey:
+    Best: 270.0
+    Avg:  -1923.9
+    Best escapes: 6
+
+Generation 43:
+  Predators:
+    Best: 3150.0
+    Avg:  1691.7
+    Best kills: 61
+  Prey:
+    Best: 294.1
+    Avg:  -2162.8
+    Best escapes: 7
+
+Generation 44:
+  Predators:
+    Best: 2350.0
+    Avg:  1391.7
+    Best kills: 45
+  Prey:
+    Best: 290.0
+    Avg:  -1677.1
+    Best escapes: 23
+
+Generation 45:
+  Predators:
+    Best: 5100.0
+    Avg:  1193.3
+    Best kills: 100
+  Prey:
+    Best: 300.0
+    Avg:  -1375.8
+    Best escapes: 7
+
+Generation 46:
+  Predators:
+    Best: 2500.0
+    Avg:  1468.3
+    Best kills: 48
+  Prey:
+    Best: 300.0
+    Avg:  -1825.6
+    Best escapes: 7
+
+Generation 47:
+  Predators:
+    Best: 3600.0
+    Avg:  1615.0
+    Best kills: 70
+  Prey:
+    Best: 230.0
+    Avg:  -2002.6
+    Best escapes: 2
+
+Generation 48:
+  Predators:
+    Best: 9250.0
+    Avg:  3305.0
+    Best kills: 183
+  Prey:
+    Best: 280.0
+    Avg:  -4573.8
+    Best escapes: 27
+
+Generation 49:
+  Predators:
+    Best: 4900.0
+    Avg:  2151.7
+    Best kills: 96
+  Prey:
+    Best: 290.0
+    Avg:  -2848.4
+    Best escapes: 8
+
+Generation 50:
+  Predators:
+    Best: 5250.0
+    Avg:  3801.7
+    Best kills: 103
+  Prey:
+    Best: 330.0
+    Avg:  -5427.1
+    Best escapes: 7
+
+Generation 51:
+  Predators:
+    Best: 23350.0
+    Avg:  8761.7
+    Best kills: 465
+  Prey:
+    Best: 250.0
+    Avg:  -13095.5
+    Best escapes: 4
+
+Generation 52:
+  Predators:
+    Best: 8000.0
+    Avg:  2430.0
+    Best kills: 158
+  Prey:
+    Best: 230.0
+    Avg:  -3280.7
+    Best escapes: 24
+
+Generation 53:
+  Predators:
+    Best: 18000.0
+    Avg:  9616.7
+    Best kills: 358
+  Prey:
+    Best: 360.0
+    Avg:  -14328.0
+    Best escapes: 7
+
+Generation 54:
+  Predators:
+    Best: 22250.0
+    Avg:  11481.7
+    Best kills: 443
+  Prey:
+    Best: 240.0
+    Avg:  -17144.4
+    Best escapes: 21
+
+Generation 55:
+  Predators:
+    Best: 15700.0
+    Avg:  8645.0
+    Best kills: 312
+  Prey:
+    Best: 370.0
+    Avg:  -12750.6
+    Best escapes: 9
+
+Generation 56:
+  Predators:
+    Best: 8800.0
+    Avg:  3453.3
+    Best kills: 174
+  Prey:
+    Best: 380.0
+    Avg:  -4742.4
+    Best escapes: 18
+
+Generation 57:
+  Predators:
+    Best: 13850.0
+    Avg:  5466.7
+    Best kills: 275
+  Prey:
+    Best: 260.0
+    Avg:  -7886.2
+    Best escapes: 5
+
+Generation 58:
+  Predators:
+    Best: 13450.0
+    Avg:  8470.0
+    Best kills: 267
+  Prey:
+    Best: 330.0
+    Avg:  -12477.0
+    Best escapes: 5
+
+Generation 59:
+  Predators:
+    Best: 7000.0
+    Avg:  3181.7
+    Best kills: 138
+  Prey:
+    Best: 330.0
+    Avg:  -4400.6
+    Best escapes: 61
+
+Generation 60:
+  Predators:
+    Best: 9350.0
+    Avg:  3408.3
+    Best kills: 185
+  Prey:
+    Best: 340.0
+    Avg:  -4773.0
+    Best escapes: 9
+
+Generation 61:
+  Predators:
+    Best: 7250.0
+    Avg:  4296.7
+    Best kills: 143
+  Prey:
+    Best: 350.0
+    Avg:  -6219.4
+    Best escapes: 9
+
+Generation 62:
+  Predators:
+    Best: 9800.0
+    Avg:  5218.3
+    Best kills: 194
+  Prey:
+    Best: 397.6
+    Avg:  -7509.2
+    Best escapes: 13
+
+Generation 63:
+  Predators:
+    Best: 14300.0
+    Avg:  6115.0
+    Best kills: 284
+  Prey:
+    Best: 250.0
+    Avg:  -8927.3
+    Best escapes: 4
+
+Generation 64:
+  Predators:
+    Best: 24550.0
+    Avg:  9868.3
+    Best kills: 489
+  Prey:
+    Best: 360.0
+    Avg:  -14672.9
+    Best escapes: 8
+
+Generation 65:
+  Predators:
+    Best: 10750.0
+    Avg:  6443.3
+    Best kills: 213
+  Prey:
+    Best: 330.0
+    Avg:  -9243.8
+    Best escapes: 9
+
+Generation 66:
+  Predators:
+    Best: 7050.0
+    Avg:  3900.0
+    Best kills: 139
+  Prey:
+    Best: 270.0
+    Avg:  -5572.0
+    Best escapes: 5
+
+Generation 67:
+  Predators:
+    Best: 8500.0
+    Avg:  3288.3
+    Best kills: 168
+  Prey:
+    Best: 401.4
+    Avg:  -4522.9
+    Best escapes: 13
+
+Generation 68:
+  Predators:
+    Best: 3850.0
+    Avg:  1723.3
+    Best kills: 75
+  Prey:
+    Best: 280.0
+    Avg:  -2198.8
+    Best escapes: 13
+
+Generation 69:
+  Predators:
+    Best: 7750.0
+    Avg:  2498.3
+    Best kills: 153
+  Prey:
+    Best: 270.0
+    Avg:  -3389.1
+    Best escapes: 5
+
+Generation 70:
+  Predators:
+    Best: 8600.0
+    Avg:  4266.7
+    Best kills: 170
+  Prey:
+    Best: 330.0
+    Avg:  -6119.7
+    Best escapes: 10
+
+Generation 71:
+  Predators:
+    Best: 3700.0
+    Avg:  2073.3
+    Best kills: 72
+  Prey:
+    Best: 360.0
+    Avg:  -2686.0
+    Best escapes: 10
+
+Generation 72:
+  Predators:
+    Best: 3050.0
+    Avg:  1216.7
+    Best kills: 59
+  Prey:
+    Best: 340.0
+    Avg:  -1396.2
+    Best escapes: 9
+
+Generation 73:
+  Predators:
+    Best: 9100.0
+    Avg:  4681.7
+    Best kills: 180
+  Prey:
+    Best: 260.0
+    Avg:  -6653.0
+    Best escapes: 5
+
+Generation 74:
+  Predators:
+    Best: 9250.0
+    Avg:  3725.0
+    Best kills: 183
+  Prey:
+    Best: 360.0
+    Avg:  -5252.0
+    Best escapes: 8
+
+Generation 75:
+  Predators:
+    Best: 2850.0
+    Avg:  1408.3
+    Best kills: 55
+  Prey:
+    Best: 470.0
+    Avg:  -1624.0
+    Best escapes: 14
+
+Generation 76:
+  Predators:
+    Best: 4350.0
+    Avg:  1798.3
+    Best kills: 85
+  Prey:
+    Best: 340.0
+    Avg:  -2327.4
+    Best escapes: 8
+
+Generation 77:
+  Predators:
+    Best: 3600.0
+    Avg:  1231.7
+    Best kills: 70
+  Prey:
+    Best: 340.0
+    Avg:  -1391.7
+    Best escapes: 61
+
+Generation 78:
+  Predators:
+    Best: 5750.0
+    Avg:  2363.3
+    Best kills: 113
+  Prey:
+    Best: 280.0
+    Avg:  -3086.0
+    Best escapes: 5
+
+Generation 79:
+  Predators:
+    Best: 12050.0
+    Avg:  5908.3
+    Best kills: 239
+  Prey:
+    Best: 410.0
+    Avg:  -8603.1
+    Best escapes: 11
+
+Generation 80:
+  Predators:
+    Best: 21700.0
+    Avg:  11658.3
+    Best kills: 432
+  Prey:
+    Best: 310.0
+    Avg:  -17524.0
+    Best escapes: 7
+
+Generation 81:
+  Predators:
+    Best: 3250.0
+    Avg:  2050.0
+    Best kills: 63
+  Prey:
+    Best: 316.0
+    Avg:  -2687.8
+    Best escapes: 8
+
+Generation 82:
+  Predators:
+    Best: 27150.0
+    Avg:  5556.7
+    Best kills: 541
+  Prey:
+    Best: 240.0
+    Avg:  -8086.2
+    Best escapes: 23
+
+Generation 83:
+  Predators:
+    Best: 15950.0
+    Avg:  5710.0
+    Best kills: 317
+  Prey:
+    Best: 340.0
+    Avg:  -8273.9
+    Best escapes: 7
+
+Generation 84:
+  Predators:
+    Best: 5650.0
+    Avg:  1903.3
+    Best kills: 111
+  Prey:
+    Best: 280.1
+    Avg:  -2436.1
+    Best escapes: 7
+
+Generation 85:
+  Predators:
+    Best: 2100.0
+    Avg:  1061.7
+    Best kills: 40
+  Prey:
+    Best: 300.0
+    Avg:  -1184.0
+    Best escapes: 8
+
+Generation 86:
+  Predators:
+    Best: 20000.0
+    Avg:  8400.0
+    Best kills: 398
+  Prey:
+    Best: 330.0
+    Avg:  -12571.0
+    Best escapes: 10
+
+Generation 87:
+  Predators:
+    Best: 8250.0
+    Avg:  4648.3
+    Best kills: 163
+  Prey:
+    Best: 310.0
+    Avg:  -6688.4
+    Best escapes: 5
+
+Generation 88:
+  Predators:
+    Best: 1300.0
+    Avg:  591.7
+    Best kills: 24
+  Prey:
+    Best: 480.0
+    Avg:  -471.3
+    Best escapes: 16
+
+Generation 89:
+  Predators:
+    Best: 4850.0
+    Avg:  1181.7
+    Best kills: 95
+  Prey:
+    Best: 322.7
+    Avg:  -1303.4
+    Best escapes: 9
+
+Generation 90:
+  Predators:
+    Best: 28250.0
+    Avg:  11216.7
+    Best kills: 563
+  Prey:
+    Best: 450.0
+    Avg:  -16825.1
+    Best escapes: 12
+
+Generation 91:
+  Predators:
+    Best: 20800.0
+    Avg:  12515.0
+    Best kills: 414
+  Prey:
+    Best: 300.0
+    Avg:  -18794.8
+    Best escapes: 5
+
+Generation 92:
+  Predators:
+    Best: 15650.0
+    Avg:  8120.0
+    Best kills: 311
+  Prey:
+    Best: 310.0
+    Avg:  -11955.5
+    Best escapes: 6
+
+Generation 93:
+  Predators:
+    Best: 9200.0
+    Avg:  4996.7
+    Best kills: 182
+  Prey:
+    Best: 410.0
+    Avg:  -7023.8
+    Best escapes: 12
+
+Generation 94:
+  Predators:
+    Best: 12650.0
+    Avg:  4201.7
+    Best kills: 251
+  Prey:
+    Best: 270.0
+    Avg:  -6032.4
+    Best escapes: 12
+
+Generation 95:
+  Predators:
+    Best: 27300.0
+    Avg:  17701.7
+    Best kills: 544
+  Prey:
+    Best: 300.0
+    Avg:  -26713.1
+    Best escapes: 5
+
+Generation 96:
+  Predators:
+    Best: 4100.0
+    Avg:  1826.7
+    Best kills: 80
+  Prey:
+    Best: 270.0
+    Avg:  -2378.9
+    Best escapes: 7
+
+Generation 97:
+  Predators:
+    Best: 10950.0
+    Avg:  5285.0
+    Best kills: 217
+  Prey:
+    Best: 300.0
+    Avg:  -7616.0
+    Best escapes: 7
+
+Generation 98:
+  Predators:
+    Best: 7500.0
+    Avg:  3098.3
+    Best kills: 148
+  Prey:
+    Best: 290.0
+    Avg:  -4227.0
+    Best escapes: 5
+
+Generation 99:
+  Predators:
+    Best: 9900.0
+    Avg:  4641.7
+    Best kills: 196
+  Prey:
+    Best: 260.8
+    Avg:  -6604.6
+    Best escapes: 6
+
+Generation 100:
+  Predators:
+    Best: 18100.0
+    Avg:  10993.3
+    Best kills: 360
+  Prey:
+    Best: 270.0
+    Avg:  -16425.1
+    Best escapes: 5
+
+🎉 Coevolution complete!
