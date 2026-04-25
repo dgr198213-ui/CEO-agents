@@ -1,7 +1,7 @@
 # Package
-version       = "1.0.0"
+version       = "2.0.0"
 author        = "CEO-Agents Team"
-description   = "Sistema de Agentes Evolutivos CEO (Cognitive Evolutionary Orchestrator)"
+description   = "Sistema de Agentes Evolutivos CEO con ejecución funcional de tareas - Integración LLM, Tool Registry y Motor de Ejecución"
 license       = "MIT"
 srcDir        = "."
 
@@ -18,7 +18,10 @@ task buildRelease, "Compila en modo release optimizado":
 task clean, "Limpia artefactos de compilación":
   exec "bash build.sh --clean"
 
-task runCEO, "Ejecuta el ejemplo principal CEO + Stack Agents":
+task runFunctional, "Ejecuta el sistema funcional completo con integración LLM y herramientas":
+  exec "nim c -r example_ceo_functional.nim"
+
+task runCEO, "Ejecuta el ejemplo principal CEO + Stack Agents (modo simulación)":
   exec "nim c -r example_integrated_ceo_stack.nim"
 
 task runSwarm, "Ejecuta el ejemplo de Swarm Intelligence":

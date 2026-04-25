@@ -3,7 +3,55 @@
 # ============================================================================
 # Defines base types and interfaces for all evolutionary agent systems
 
-import random, sequtils, algorithm, math
+import random, sequtils, algorithm, math, json, tables, times
+
+# ============================================================================
+# Execution Types for Real Task Execution
+# ============================================================================
+
+type
+  # Execution state for agents
+  ExecutionState* = enum
+    esIdle
+    esInitializing
+    esExecuting
+    esWaiting
+    esCompleted
+    esFailed
+
+  # Tool and capability types
+  ToolCapability* = enum
+    tcFileRead
+    tcFileWrite
+    tcFileDelete
+    tcShellExecute
+    tcHttpRequest
+    tcDatabaseQuery
+    tcCodeAnalysis
+    tcLLMChat
+
+  # Agent permissions
+  Permission* = object
+    allowedTools*: set[ToolCapability]
+    maxFileSize*: int
+    canExecuteShell*: bool
+    canAccessNetwork*: bool
+
+  # Task result for execution
+  ExecutionResult* = object
+    success*: bool
+    output*: string
+    error*: string
+    durationMs*: float
+    toolsUsed*: seq[string]
+
+  # Agent with execution capabilities
+  ExecutableAgent* = ref object of Agent
+    executionState*: ExecutionState
+    availableTools*: set[ToolCapability]
+    permission*: Permission
+    lastResult*: ExecutionResult
+    currentTask*: string
 
 # ============================================================================
 # Type Definitions
@@ -143,6 +191,7 @@ proc wrapAround*(pos: var Vector2D, width, height: float) =
 
 export Vector2D, AgentState, Genome, NeuralGenome, BehaviorGenome
 export Agent, Environment, EvolutionParams
+export ExecutableAgent, ExecutionState, ExecutionResult, ToolCapability, Permission
 export `+`, `-`, `*`, magnitude, normalize, distance
 export newGenome, clone
 export update, sense, act, evaluateFitness

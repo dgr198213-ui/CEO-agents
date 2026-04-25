@@ -1,9 +1,31 @@
-# CEO-Agents — Sistema de Agentes Evolutivos 🧬
+# CEO-Agents — Sistema de Agentes Evolutivos Funcional 🧬
 
-> **Cognitive Evolutionary Orchestrator** — Un framework de agentes inteligentes basado en algoritmos evolutivos, neuroevolución y sistemas multi-agente, implementado en Nim 2.x.
+> **Cognitive Evolutionary Orchestrator** — Un framework de agentes inteligentes basado en algoritmos evolutivos, neuroevolución y sistemas multi-agente con **ejecución funcional de tareas mediante integración LLM**. Implementado en Nim 2.x.
 
 [![Nim 2.0+](https://img.shields.io/badge/Nim-2.0%2B-orange)](https://nim-lang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+---
+
+## 🎯 Sistema Funcional (Nueva Versión 2.0)
+
+El sistema ahora soporta **ejecución real de tareas** mediante:
+
+- **Integración LLM**: Conexión con OpenAI, Anthropic y Ollama (local)
+- **Tool Registry**: Sistema de herramientas para filesystem, shell, red y análisis de código
+- **Agent Execution Engine**: Motor de ejecución con descomposición de tareas
+- **CEO Orchestrator Real**: Orquestación con agentes especializados que ejecutan tareas
+
+```bash
+# Ejecutar el sistema funcional completo
+nim c -r example_ceo_functional.nim
+```
+
+**Características principales:**
+- 8 StackAgents especializados (Python, TypeScript, DevOps, Frontend, Backend, Security, Testing, Docs)
+- Asignación inteligente de tareas según especialización
+- Ejecución real de código y generación de artifacts
+- Métricas de performance y tracking de calidad
 
 ---
 
@@ -33,6 +55,7 @@ This framework provides modular, efficient implementations of:
 - **CEO Orchestrator** (multi-agent software development coordination)
 - **PWA Agents** (Progressive Web App optimization agents)
 - **Knowledge Agents** (evolutionary knowledge graph management)
+- **Functional Execution** (LLM integration, tool registry, real task execution)
 
 Based on cutting-edge research in:
 - EvoAgent framework (2024)
@@ -48,18 +71,19 @@ Based on cutting-edge research in:
 
 ```
 CEO-agents/
-├── agent_base.nim              # Tipos base: Agent, Environment, Vector2D
+├── agent_base.nim              # Tipos base: Agent, Environment, Vector2D + Execution types
 ├── evolution_core.nim          # Motor evolutivo genérico
 ├── neuro_agent.nim             # NeuroAgent con red neuronal NEAT-inspired
 ├── swarm_agent.nim             # SwarmAgent: roles y comportamientos emergentes
 ├── coevo_agent.nim             # CoevoAgent: co-evolución predador-presa
 ├── knowledge_agent.nim         # KnowledgeAgent: grafos de conocimiento evolutivos
-├── ceo_agent.nim               # CEOAgent: orquestador de proyectos de software
-├── stack_agents.nim            # StackAgent: agentes especializados
-├── cache_strategy_agent.nim    # Agente PWA: estrategias de caché
-├── notification_agent.nim      # Agente PWA: notificaciones push
-├── sync_agent.nim              # Agente PWA: sincronización offline
-├── example_integrated_ceo_stack.nim  # CEO + Stack Agents
+├── ceo_agent.nim               # CEOAgent: orquestador con ejecución real
+├── stack_agents.nim            # StackAgent: agentes especializados con herramientas
+├── llm_integration.nim         # Integración con LLMs (OpenAI, Anthropic, Ollama)
+├── tool_registry.nim           # Registry de herramientas del sistema
+├── agent_execution_engine.nim  # Motor de ejecución de tareas
+├── example_ceo_functional.nim  # Sistema funcional completo (NUEVO)
+├── example_integrated_ceo_stack.nim  # CEO + Stack Agents (simulación)
 ├── example_swarm.nim           # Swarm Intelligence
 ├── example_knowledge.nim       # Knowledge Agents
 ├── example_coevolution.nim     # Co-evolución predador-presa
@@ -234,6 +258,75 @@ let parent = rankSelection(pop)
 
 # Evolution step
 let nextGen = evolvePopulation(pop, params, nextId)
+```
+
+### 5. Sistema de Ejecución Funcional (v2.0)
+
+#### Integración LLM
+
+```nim
+# Configurar conexión con LLM
+let config = createConfig(
+  provider = lpOllama,  # o lpOpenAI, lpAnthropic
+  model = "llama3"
+)
+
+# Ejecutar consulta
+let response = llm.chat(
+  messages = @[Message(role: "user", content: "Analiza este código...")],
+  config = config
+)
+```
+
+#### Tool Registry
+
+```nim
+# Inicializar registry
+var registry = initToolRegistry()
+
+# Registrar herramientas
+registerFileSystemTools(registry)
+registerShellTools(registry)
+registerNetworkTools(registry)
+registerCodeAnalysisTools(registry)
+
+# Ejecutar herramienta
+let params = %* {"path": "test.py", "content": "..."}
+let result = executeTool(registry[], "FileWrite", params, "PythonAgent")
+```
+
+#### StackAgents Especializados
+
+```nim
+# Crear agente con herramientas
+var agent = StackAgent(
+  name: "PythonAgent",
+  specializations: @["python", "data", "backend"],
+  tools: {tcFileRead, tcFileWrite, tcShellExecute, tcCodeAnalysis}
+)
+
+# Ejecutar tarea
+let result = executeTask(agent, task, registry)
+```
+
+#### CEO Orchestrator
+
+```nim
+# Crear orquestador
+var ceo = CEOOrchestrator(
+  name: "CEO-Agent",
+  stackAgents: initStackAgents(registry, llmConfig),
+  registry: registry
+)
+
+# Asignar tarea al mejor agente
+let agent = ceo.assignTaskToAgent(task)
+let result = executeTask(agent, task, registry)
+
+# Actualizar métricas
+inc ceo.totalTasks
+if result.success:
+  inc ceo.successfulTasks
 ```
 
 ---
