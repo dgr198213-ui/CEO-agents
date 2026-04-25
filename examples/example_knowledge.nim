@@ -3,7 +3,7 @@
 # ============================================================================
 # Evolución de agentes que generan y propagan conocimiento
 
-import agent_base, knowledge_agent, evolution_core
+import "../src/agent_base", knowledge_agent, evolution_core
 import random, sequtils, tables, strformat, algorithm
 
 proc displayKnowledgeBase(kb: KnowledgeBase, maxConcepts: int = 10) =

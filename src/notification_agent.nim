@@ -15,113 +15,10 @@
 ## - Notification Best Practices (Google) - https://web.dev/push-notifications-overview/
 ## ═══════════════════════════════════════════════════════════════════════════
 
-import agent_base, evolution_core
+import agent_base, types
 import std/[random, math, sequtils, tables, strformat, times, algorithm]
 
-## ───────────────────────────────────────────────────────────────────────────
-## Tipos de Notificaciones
-## ───────────────────────────────────────────────────────────────────────────
-
-type
-  NotificationType* = enum
-    ntTransactional   ## Confirmaciones, recibos, status updates
-    ntPromotional     ## Ofertas, descuentos, campañas marketing
-    ntSocial          ## Menciones, mensajes, interacciones sociales
-    ntContent         ## Nuevo contenido, actualizaciones, newsletters
-    ntReminder        ## Recordatorios, tareas pendientes
-    ntAlert           ## Alertas urgentes, avisos importantes
-    ntEngagement      ## Re-engagement, "te extrañamos", inactivity
-
-  NotificationPriority* = enum
-    npLow       ## Información no urgente
-    npMedium    ## Información relevante
-    npHigh      ## Información importante
-    npUrgent    ## Acción inmediata requerida
-
-  UserSegment* = enum
-    usNewUser         ## Usuario nuevo (< 7 días)
-    usActiveUser      ## Usuario activo (diario/semanal)
-    usPassiveUser     ## Usuario pasivo (mensual)
-    usDormantUser     ## Usuario inactivo (> 30 días)
-    usPowerUser       ## Usuario intensivo (> 10 sesiones/día)
-
-## ───────────────────────────────────────────────────────────────────────────
-## Perfil de Usuario
-## ───────────────────────────────────────────────────────────────────────────
-
-type
-  UserProfile* = object
-    id*: int
-    segment*: UserSegment
-    timezone*: int              ## Offset UTC (-12 a +14)
-    activeHours*: seq[int]      ## Horas del día activas (0-23)
-    engagementRate*: float      ## Histórico de CTR (0.0-1.0)
-    optOutThreshold*: float     ## Tolerancia a notificaciones (0.0-1.0)
-    preferences*: set[NotificationType]  ## Tipos preferidos
-    lastNotification*: float    ## Timestamp última notificación
-    notificationCount*: int     ## Total recibidas
-    clickCount*: int            ## Total de clicks
-    optedOut*: bool
-
-## ───────────────────────────────────────────────────────────────────────────
-## Notificación
-## ───────────────────────────────────────────────────────────────────────────
-
-type
-  Notification* = object
-    id*: int
-    notifType*: NotificationType
-    priority*: NotificationPriority
-    title*: string
-    body*: string
-    timestamp*: float           ## Hora de envío
-    targetSegment*: UserSegment
-    minEngagementRate*: float   ## Engagement mínimo esperado
-    expirationHours*: float     ## Validez de la notificación
-
-## ───────────────────────────────────────────────────────────────────────────
-## Genoma de Estrategia de Notificaciones
-## ───────────────────────────────────────────────────────────────────────────
-
-type
-  NotificationGenome* = object
-    ## Genoma que codifica políticas de notificaciones
-    # Frecuencias máximas por tipo (notificaciones por día)
-    maxFrequencies*: Table[NotificationType, float]
-    
-    # Ventanas de tiempo preferidas por segmento (hora del día)
-    preferredHours*: Table[UserSegment, seq[int]]
-    
-    # Cooldown mínimo entre notificaciones (horas)
-    cooldownPeriod*: float
-    
-    # Umbral de engagement para enviar (0.0-1.0)
-    minEngagementThreshold*: float
-    
-    # Peso de personalización (0.0 = genérico, 1.0 = ultra-personalizado)
-    personalizationWeight*: float
-    
-    # Prioridad de tipos de notificación (0.0-1.0)
-    typePriorities*: Table[NotificationType, float]
-    
-    # Agresividad de re-engagement (0.0-1.0)
-    reEngagementAggression*: float
-
-## ───────────────────────────────────────────────────────────────────────────
-## NotificationAgent
-## ───────────────────────────────────────────────────────────────────────────
-
-type
-  NotificationAgent* = ref object of Agent
-    notifGenome*: NotificationGenome
-    users*: seq[UserProfile]
-    pendingNotifications*: seq[Notification]
-    sentNotifications*: int
-    totalClicks*: int
-    totalOptOuts*: int
-    avgCTR*: float                ## Click-Through Rate promedio
-    avgEngagement*: float
-    reputationScore*: float       ## Score de reputación (0-100)
+# NotificationType, NotificationPriority, UserSegment, UserProfile, Notification, NotificationGenome, NotificationAgent are now in types.nim
 
 ## ───────────────────────────────────────────────────────────────────────────
 ## Constructor y Genoma Random
@@ -416,7 +313,7 @@ method update*(agent: NotificationAgent, env: Environment, dt: float) =
   # Calcular engagement promedio de usuarios activos
   let activeUsers = agent.users.filterIt(not it.optedOut)
   if activeUsers.len > 0:
-    agent.avgEngagement = activeUsers.mapIt(it.engagementRate).sum() / float(activeUsers.len)
+    agent.avgEngagement = activeUsers.mapIt(it.engagementRate).foldl(a + b, 0.0) / float(activeUsers.len)
   
   # Reputation score: penaliza opt-outs, premia engagement
   let optOutRate = if agent.sentNotifications > 0:
@@ -436,20 +333,16 @@ method evaluateFitness*(agent: NotificationAgent, env: Environment): float =
   let ctrScore = agent.avgCTR * 30.0 / 0.5  # Normalizado a CTR ideal ~50%
   let engagementScore = agent.avgEngagement * 30.0
   
-  let activeUsers = agent.users.filterIt(not it.optedOut).len
+  let activeUsersCount = agent.users.filterIt(not it.optedOut).len
   let retention = if agent.users.len > 0:
-    float(activeUsers) / float(agent.users.len)
+    float(activeUsersCount) / float(agent.users.len)
   else:
     1.0
   let optOutScore = retention * 25.0
   
-  let reputationScore = (agent.reputationScore / 100.0) * 15.0
+  let repScore = (agent.reputationScore / 100.0) * 15.0
   
-  result = ctrScore + engagementScore + optOutScore + reputationScore
-
-method clone*(agent: NotificationAgent): Agent =
-  ## Clona el agente
-  result = newNotificationAgent(agent.id, agent.notifGenome)
+  result = ctrScore + engagementScore + optOutScore + repScore
 
 ## ───────────────────────────────────────────────────────────────────────────
 ## Operadores Genéticos
@@ -462,33 +355,33 @@ proc mutateGenome*(genome: var NotificationGenome, rate: float = 0.1) =
   for nt in NotificationType:
     if rand(1.0) < rate:
       genome.maxFrequencies[nt] = clamp(
-        genome.maxFrequencies[nt] + rand(-2.0..2.0), 
+        genome.maxFrequencies[nt] + rand(4.0) - 2.0,
         0.5, 10.0
       )
   
   # Mutar cooldown
   if rand(1.0) < rate:
     genome.cooldownPeriod = clamp(
-      genome.cooldownPeriod + rand(-2.0..2.0), 
+      genome.cooldownPeriod + rand(4.0) - 2.0,
       0.5, 12.0
     )
   
   # Mutar thresholds
   if rand(1.0) < rate:
     genome.minEngagementThreshold = clamp(
-      genome.minEngagementThreshold + rand(-0.1..0.1), 
+      genome.minEngagementThreshold + rand(0.2) - 0.1,
       0.1, 0.7
     )
   
   if rand(1.0) < rate:
     genome.personalizationWeight = clamp(
-      genome.personalizationWeight + rand(-0.1..0.1), 
+      genome.personalizationWeight + rand(0.2) - 0.1,
       0.3, 1.0
     )
   
   if rand(1.0) < rate:
     genome.reEngagementAggression = clamp(
-      genome.reEngagementAggression + rand(-0.1..0.1), 
+      genome.reEngagementAggression + rand(0.2) - 0.1,
       0.0, 0.8
     )
   
@@ -496,7 +389,7 @@ proc mutateGenome*(genome: var NotificationGenome, rate: float = 0.1) =
   for nt in NotificationType:
     if rand(1.0) < rate:
       genome.typePriorities[nt] = clamp(
-        genome.typePriorities[nt] + rand(-0.2..0.2), 
+        genome.typePriorities[nt] + rand(0.4) - 0.2,
         0.3, 1.0
       )
   

@@ -13,65 +13,11 @@
 ## - Aprendizaje de patrones de éxito mediante GA
 
 import random, math, tables, strutils, sequtils, algorithm, strformat
+import types
 
 randomize()
 
-## ============================================================================
-## Types: CEO Agent Genome & Task
-## ============================================================================
-
-type
-  TaskType* = enum
-    ttDataProcessing
-    ttAPIDesign
-    ttFrontendUI
-    ttDevOps
-    ttSecurity
-    ttTesting
-    ttDocumentation
-    ttCodeRefactor
-    ttDatabaseDesign
-    ttResearch
-
-  TaskUrgency* = enum
-    urLow
-    urMedium
-    urHigh
-    urCritical
-
-  Task* = object
-    id*: int
-    taskType*: TaskType
-    complexity*: float       # 0.0..1.0
-    urgency*: TaskUrgency
-    description*: string
-    estimatedTime*: float    # hours
-    assignedAgent*: string
-    completed*: bool
-    successScore*: float     # 0.0..1.0
-
-  StackAgent* = object
-    name*: string
-    specialization*: seq[TaskType]
-    workload*: float         # 0.0..1.0
-    performance*: float      # avg success 0.0..1.0
-    tasksCompleted*: int
-
-  # CEO Genome: estrategias de enrutamiento y priorización
-  CEOGenome* = object
-    routingWeights*: Table[TaskType, Table[string, float]]  # task -> agent -> weight
-    urgencyMultiplier*: array[TaskUrgency, float]
-    complexityThreshold*: Table[string, float]  # agent -> max complexity
-    workloadCapacity*: float                     # max workload antes de redistribuir
-    reassignmentRate*: float                     # % tasks para re-evaluar
-
-  CEOAgent* = object
-    genome*: CEOGenome
-    fitness*: float
-    stackAgents*: seq[StackAgent]
-    taskHistory*: seq[Task]
-    totalTasks*: int
-    successfulTasks*: int
+# TaskType, TaskUrgency, Task, StackAgent, CEOGenome, CEOAgent are now in types.nim
 
 ## ============================================================================
 ## Initialization
@@ -200,7 +146,7 @@ proc executeTask*(ceo: var CEOAgent, task: var Task) =
       break
   
   # Ejecución
-  task.successScore = min(1.0, successProb + rand(0.3) - 0.15)
+  task.successScore = min(1.0, successProb + rand(1.0) * 0.3 - 0.15)
   task.completed = true
   
   if task.successScore > 0.6:
@@ -241,7 +187,7 @@ proc evaluateFitness*(ceo: var CEOAgent) =
   for sa in ceo.stackAgents:
     workloads.add(sa.workload)
   
-  let meanWorkload = workloads.sum / workloads.len.float
+  let meanWorkload = workloads.foldl(a + b, 0.0) / workloads.len.float
   var variance = 0.0
   for w in workloads:
     variance += (w - meanWorkload) * (w - meanWorkload)
@@ -264,10 +210,13 @@ proc evaluateFitness*(ceo: var CEOAgent) =
 proc mutate*(genome: var CEOGenome, rate: float) =
   ## Mutación adaptativa del genome CEO
   for tt in TaskType:
-    for agentName in genome.routingWeights[tt].keys:
+    var weights = genome.routingWeights[tt]
+    for agentName in weights.keys:
       if rand(1.0) < rate:
-        genome.routingWeights[tt][agentName] += (rand(1.0) - 0.5) * 0.3
-        genome.routingWeights[tt][agentName] = max(0.01, genome.routingWeights[tt][agentName])
+        var w = weights[agentName]
+        w += (rand(1.0) - 0.5) * 0.3
+        weights[agentName] = max(0.01, w)
+    genome.routingWeights[tt] = weights
   
   for urg in TaskUrgency:
     if rand(1.0) < rate:
@@ -276,8 +225,9 @@ proc mutate*(genome: var CEOGenome, rate: float) =
   
   for agentName in genome.complexityThreshold.keys:
     if rand(1.0) < rate:
-      genome.complexityThreshold[agentName] += (rand(1.0) - 0.5) * 0.15
-      genome.complexityThreshold[agentName] = clamp(genome.complexityThreshold[agentName], 0.1, 0.95)
+      var ct = genome.complexityThreshold[agentName]
+      ct += (rand(1.0) - 0.5) * 0.15
+      genome.complexityThreshold[agentName] = clamp(ct, 0.1, 0.95)
   
   if rand(1.0) < rate:
     genome.workloadCapacity += (rand(1.0) - 0.5) * 0.1
@@ -434,7 +384,7 @@ when isMainModule:
   for tt in [ttFrontendUI, ttAPIDesign, ttDevOps, ttSecurity]:
     echo &"  {tt}:"
     var weights: seq[(string, float)] = @[]
-    for k, v in bestCEO.genome.routingWeights[tt]:
+    for k, v in bestCEO.genome.routingWeights[tt].pairs:
       weights.add((k, v))
     weights.sort(proc(a, b: (string, float)): int = cmp(b[1], a[1]))
     for i in 0..<min(3, weights.len):

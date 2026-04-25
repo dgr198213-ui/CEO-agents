@@ -18,59 +18,11 @@
 ## - Evaluación de fitness por tareas completadas
 
 import random, math, tables, strutils, sequtils, algorithm, strformat
+import types
 
 randomize()
 
-## ============================================================================
-## Base Types
-## ============================================================================
-
-type
-  SkillDomain* = enum
-    sdSyntax          # Language syntax & semantics
-    sdArchitecture    # Design patterns & system architecture
-    sdPerformance     # Optimization & profiling
-    sdSecurity        # Secure coding practices
-    sdTesting         # Testing methodologies
-    sdDebugging       # Error diagnosis & fixing
-    sdDocumentation   # Technical writing
-    sdIntegration     # External APIs & services
-    sdDeployment      # CI/CD & production
-    sdMaintenance     # Refactoring & legacy code
-
-  StackAgentGenome* = object
-    skills*: Table[SkillDomain, float]  # 0.0..1.0 skill level
-    learningRate*: float                # adaptive learning 0.01..0.3
-    specializationDepth*: float         # generalist vs specialist
-    collaborationScore*: float          # team‑work ability
-    adaptabilityRate*: float            # how fast to adapt to new tasks
-
-  StackAgentType* = enum
-    satPython
-    satTypeScript
-    satDevOps
-    satDataScience
-    satFrontend
-    satBackend
-    satDatabase
-    satSecurity
-    satTesting
-    satDocs
-
-  TaskOutcome* = object
-    taskId*: int
-    success*: bool
-    timeSpent*: float
-    qualityScore*: float    # 0.0..1.0
-    skillsUsed*: seq[SkillDomain]
-
-  StackAgent* = object
-    agentType*: StackAgentType
-    genome*: StackAgentGenome
-    fitness*: float
-    experience*: seq[TaskOutcome]
-    totalTasks*: int
-    successfulTasks*: int
+# SkillDomain, StackAgentGenome, StackAgentType, TaskOutcome, StackAgent are now in types.nim
 
 ## ============================================================================
 ## Genome Initialization
@@ -354,7 +306,7 @@ proc evaluateFitness*(agent: var StackAgent) =
   var skillValues: seq[float] = @[]
   for skill in SkillDomain:
     skillValues.add(agent.genome.skills.getOrDefault(skill, 0.0))
-  let meanSkill = skillValues.sum / skillValues.len.float
+  let meanSkill = skillValues.foldl(a + b, 0.0) / skillValues.len.float
   var variance = 0.0
   for v in skillValues:
     variance += (v - meanSkill) * (v - meanSkill)
@@ -444,7 +396,7 @@ when isMainModule:
   for agent in [agents[0], agents[1], agents[2]]:  # Python, TS, DevOps
     echo &"\n{agent.agentType}:"
     var skillList: seq[(SkillDomain, float)] = @[]
-    for skill, level in agent.genome.skills:
+    for skill, level in agent.genome.skills.pairs:
       skillList.add((skill, level))
     skillList.sort(proc(a, b: (SkillDomain, float)): int = cmp(b[1], a[1]))
     for i in 0..<min(5, skillList.len):

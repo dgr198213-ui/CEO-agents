@@ -14,80 +14,10 @@
 ## - "Service Workers: An Introduction" (Google Developers)
 ## ═══════════════════════════════════════════════════════════════════════════
 
-import agent_base, evolution_core
+import agent_base, types
 import std/[random, math, sequtils, tables, strformat, algorithm]
 
-## ───────────────────────────────────────────────────────────────────────────
-## Tipos de Recursos Web
-## ───────────────────────────────────────────────────────────────────────────
-
-type
-  ResourceType* = enum
-    rtHTML        ## Páginas HTML
-    rtCSS         ## Hojas de estilo
-    rtJS          ## Scripts JavaScript
-    rtImage       ## Imágenes (PNG, JPEG, WebP)
-    rtFont        ## Fuentes web
-    rtAPI         ## Llamadas a API
-    rtVideo       ## Contenido multimedia
-    rtDocument    ## Documentos (PDF, etc)
-
-  CacheStrategy* = enum
-    csCacheFirst           ## Cache-First: prioriza caché, fallback a red
-    csNetworkFirst         ## Network-First: prioriza red, fallback a caché
-    csStaleWhileRevalidate ## SWR: devuelve caché + actualiza en background
-    csCacheOnly            ## Cache-Only: solo desde caché (offline-first)
-    csNetworkOnly          ## Network-Only: siempre desde red
-    
-  ResourceProfile* = object
-    ## Perfil de un recurso web
-    resType*: ResourceType
-    url*: string
-    size*: float           ## KB
-    accessFrequency*: float  ## Accesos por minuto
-    updateRate*: float     ## Frecuencia de cambio (0.0-1.0)
-    criticalPath*: bool    ## ¿Está en la ruta crítica de render?
-    lastAccess*: float     ## Timestamp del último acceso
-    
-  CacheEntry* = object
-    ## Entrada en caché con metadatos
-    profile*: ResourceProfile
-    strategy*: CacheStrategy
-    cacheHits*: int
-    cacheMisses*: int
-    networkLatency*: float  ## ms promedio
-    cacheLatency*: float    ## ms promedio (típicamente ~1ms)
-    staleness*: float       ## Edad del recurso en caché (horas)
-
-## ───────────────────────────────────────────────────────────────────────────
-## Genoma de Estrategia de Caché
-## ───────────────────────────────────────────────────────────────────────────
-
-type
-  CacheGenome* = object
-    ## Genoma que codifica políticas de caché para diferentes tipos de recursos
-    strategyMap*: Table[ResourceType, CacheStrategy]  ## Estrategia por tipo
-    maxCacheSize*: float        ## MB máximo de caché
-    evictionThreshold*: float   ## Umbral de uso para eviction (0.0-1.0)
-    prefetchWindow*: int        ## Recursos a prefetch basados en patrones
-    ttlMultipliers*: Table[ResourceType, float]  ## Multiplicadores de TTL
-    criticalPathPriority*: float  ## Peso para recursos críticos (0.0-1.0)
-    stalenessAcceptance*: float   ## Tolerancia a datos obsoletos (0.0-1.0)
-
-## ───────────────────────────────────────────────────────────────────────────
-## CacheStrategyAgent
-## ───────────────────────────────────────────────────────────────────────────
-
-type
-  CacheStrategyAgent* = ref object of Agent
-    cacheGenome*: CacheGenome
-    cacheState*: seq[CacheEntry]    ## Estado actual de caché
-    resources*: seq[ResourceProfile] ## Catálogo de recursos
-    totalCacheSize*: float           ## Tamaño actual de caché (MB)
-    totalRequests*: int
-    cacheHitRatio*: float
-    avgLatency*: float               ## ms
-    offlineAvailability*: float      ## % recursos disponibles offline
+# ResourceType, CacheStrategy, ResourceProfile, CacheEntry, CacheGenome, CacheStrategyAgent are now in types.nim
     
 ## ───────────────────────────────────────────────────────────────────────────
 ## Constructor y Genoma Random
@@ -331,7 +261,7 @@ method update*(agent: CacheStrategyAgent, env: Environment, dt: float) =
   
   for i in 0..<requestsPerUpdate:
     # Seleccionar recurso aleatorio ponderado por frecuencia de acceso
-    let totalFreq = agent.resources.mapIt(it.accessFrequency).sum()
+    let totalFreq = agent.resources.mapIt(it.accessFrequency).foldl(a + b, 0.0)
     var r = rand(totalFreq)
     var selectedResource: ResourceProfile
     
@@ -395,10 +325,6 @@ method evaluateFitness*(agent: CacheStrategyAgent, env: Environment): float =
   
   result = hitScore + latencyScore + offlineScore + cacheScore
 
-method clone*(agent: CacheStrategyAgent): Agent =
-  ## Clona el agente
-  result = newCacheStrategyAgent(agent.id, agent.cacheGenome)
-
 ## ───────────────────────────────────────────────────────────────────────────
 ## Operadores Genéticos Especializados
 ## ───────────────────────────────────────────────────────────────────────────
@@ -413,24 +339,24 @@ proc mutateGenome*(genome: var CacheGenome, rate: float = 0.1) =
   
   # Mutar parámetros numéricos
   if rand(1.0) < rate:
-    genome.maxCacheSize = clamp(genome.maxCacheSize + rand(-50.0..50.0), 50.0, 500.0)
+    genome.maxCacheSize = clamp(genome.maxCacheSize + rand(100.0) - 50.0, 50.0, 500.0)
   
   if rand(1.0) < rate:
-    genome.evictionThreshold = clamp(genome.evictionThreshold + rand(-0.1..0.1), 0.5, 0.95)
+    genome.evictionThreshold = clamp(genome.evictionThreshold + rand(0.2) - 0.1, 0.5, 0.95)
   
   if rand(1.0) < rate:
-    genome.prefetchWindow = clamp(genome.prefetchWindow + rand(-3..3), 3, 15)
+    genome.prefetchWindow = clamp(genome.prefetchWindow + rand(6) - 3, 3, 15)
   
   if rand(1.0) < rate:
-    genome.criticalPathPriority = clamp(genome.criticalPathPriority + rand(-0.1..0.1), 0.6, 1.0)
+    genome.criticalPathPriority = clamp(genome.criticalPathPriority + rand(0.2) - 0.1, 0.6, 1.0)
   
   if rand(1.0) < rate:
-    genome.stalenessAcceptance = clamp(genome.stalenessAcceptance + rand(-0.1..0.1), 0.0, 0.7)
+    genome.stalenessAcceptance = clamp(genome.stalenessAcceptance + rand(0.2) - 0.1, 0.0, 0.7)
   
   # Mutar TTL multipliers
   for rt in ResourceType:
     if rand(1.0) < rate:
-      genome.ttlMultipliers[rt] = clamp(genome.ttlMultipliers[rt] + rand(-0.5..0.5), 0.5, 5.0)
+      genome.ttlMultipliers[rt] = clamp(genome.ttlMultipliers[rt] + rand(1.0) - 0.5, 0.5, 5.0)
 
 proc crossoverGenomes*(g1, g2: CacheGenome): CacheGenome =
   ## Crossover de dos genomas de caché

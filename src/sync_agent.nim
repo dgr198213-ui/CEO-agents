@@ -16,127 +16,17 @@
 ## - CRDTs (Conflict-free Replicated Data Types) - Shapiro et al. 2011
 ## ═══════════════════════════════════════════════════════════════════════════
 
-import agent_base, evolution_core
+import agent_base, types
 import std/[random, math, sequtils, tables, strformat, algorithm, hashes]
 
-## ───────────────────────────────────────────────────────────────────────────
-## Tipos de Operaciones
-## ───────────────────────────────────────────────────────────────────────────
+# OperationType, ConflictResolution, SyncPriority, DataRecord, SyncOperation, SyncGenome, NetworkState, SyncAgent are now in types.nim
 
-type
-  OperationType* = enum
-    opCreate    ## Crear nuevo registro
-    opUpdate    ## Actualizar registro existente
-    opDelete    ## Eliminar registro
-    opRead      ## Lectura (no sincronizable, solo para stats)
-
-  ConflictResolution* = enum
-    crLastWriteWins      ## El más reciente gana (simple)
-    crFirstWriteWins     ## El primero gana (conservador)
-    crMerge              ## Merge inteligente de campos
-    crUserDecision       ## Requiere intervención del usuario
-    crServerWins         ## Servidor siempre gana
-    crClientWins         ## Cliente siempre gana
-
-  SyncPriority* = enum
-    spLow       ## Sincronización diferida (cuando hay WiFi)
-    spMedium    ## Sincronización normal
-    spHigh      ## Sincronización prioritaria
-    spCritical  ## Sincronización inmediata
-
-## ───────────────────────────────────────────────────────────────────────────
-## Data Record
-## ───────────────────────────────────────────────────────────────────────────
-
-type
-  DataRecord* = object
-    id*: int
-    entityType*: string         ## Tipo de entidad (user, post, comment, etc)
-    version*: int               ## Versión del registro
-    timestamp*: float           ## Timestamp de última modificación
-    clientId*: int              ## ID del cliente que lo modificó
-    data*: Table[string, string] ## Datos (simulado como clave-valor)
-    checksum*: int              ## Hash de los datos para detección de conflictos
-
-proc hash*(r: DataRecord): Hash =
+proc getRecordHash*(r: DataRecord): Hash =
   ## Calcula hash del contenido para detección de conflictos
   result = r.id.hash !& r.version.hash !& r.timestamp.hash
   for k, v in r.data.pairs:
     result = result !& k.hash !& v.hash
   result = !$result
-
-## ───────────────────────────────────────────────────────────────────────────
-## Sync Operation (operación pendiente)
-## ───────────────────────────────────────────────────────────────────────────
-
-type
-  SyncOperation* = object
-    id*: int
-    opType*: OperationType
-    record*: DataRecord
-    priority*: SyncPriority
-    timestamp*: float           ## Cuándo se creó la operación
-    retryCount*: int            ## Número de intentos fallidos
-    lastRetry*: float           ## Timestamp del último intento
-    conflictDetected*: bool
-
-## ───────────────────────────────────────────────────────────────────────────
-## Genoma de Estrategia de Sincronización
-## ───────────────────────────────────────────────────────────────────────────
-
-type
-  SyncGenome* = object
-    ## Genoma que codifica políticas de sincronización
-    # Estrategia de resolución de conflictos por tipo de operación
-    conflictStrategies*: Table[OperationType, ConflictResolution]
-    
-    # Intervalos de sincronización por prioridad (segundos)
-    syncIntervals*: Table[SyncPriority, float]
-    
-    # Política de retry
-    maxRetries*: int
-    backoffMultiplier*: float    ## Multiplicador para backoff exponencial
-    initialBackoff*: float       ## Backoff inicial (segundos)
-    
-    # Batch size (operaciones por lote)
-    batchSize*: int
-    
-    # Priorización automática
-    autoPriorityThreshold*: float  ## Edad para auto-elevar prioridad (horas)
-    
-    # Conflicto tolerance
-    conflictTolerance*: float    ## Tolerancia a diferencias (0.0-1.0)
-    
-    # Network optimization
-    preferWiFi*: bool            ## Solo sincronizar en WiFi para low priority
-    compressionEnabled*: bool    ## Comprimir payloads
-
-## ───────────────────────────────────────────────────────────────────────────
-## SyncAgent
-## ───────────────────────────────────────────────────────────────────────────
-
-type
-  NetworkState* = enum
-    nsOffline
-    nsOnline3G
-    nsOnline4G
-    nsWiFi
-
-  SyncAgent* = ref object of Agent
-    syncGenome*: SyncGenome
-    pendingOps*: seq[SyncOperation]
-    serverState*: Table[int, DataRecord]   ## Estado del servidor (simulado)
-    localState*: Table[int, DataRecord]    ## Estado local del cliente
-    networkState*: NetworkState
-    
-    # Métricas
-    totalSynced*: int
-    totalConflicts*: int
-    resolvedConflicts*: int
-    failedSyncs*: int
-    avgSyncLatency*: float       ## ms
-    dataConsumption*: float      ## MB transferidos
-    successRate*: float
 
 ## ───────────────────────────────────────────────────────────────────────────
 ## Constructor y Genoma Random
@@ -204,7 +94,7 @@ proc generateDataRecord*(id: int, clientId: int, currentTime: float): DataRecord
   for i in 0..<rand(3..8):
     result.data[fmt"field_{i}"] = fmt"value_{rand(1000)}"
   
-  result.checksum = result.hash()
+  result.checksum = result.getRecordHash()
 
 proc generateSyncOperations*(count: int, clientId: int, currentTime: float): seq[SyncOperation] =
   ## Genera operaciones de sincronización simuladas
@@ -303,7 +193,7 @@ proc resolveConflict*(agent: SyncAgent, op: var SyncOperation): DataRecord =
       if key notin merged.data or clientRecord.timestamp > serverRecord.timestamp:
         merged.data[key] = value
     
-    merged.checksum = merged.hash()
+    merged.checksum = merged.getRecordHash()
     return merged
   
   of crUserDecision:
@@ -360,9 +250,9 @@ proc syncOperation*(agent: SyncAgent, op: var SyncOperation, currentTime: float)
   # Simular latencia de red (5-200ms)
   let latency = case agent.networkState
     of nsOffline: 9999.0
-    of nsOnline3G: rand(50.0..200.0)
-    of nsOnline4G: rand(20.0..80.0)
-    of nsWiFi: rand(5.0..30.0)
+    of nsOnline3G: rand(150.0) + 50.0
+    of nsOnline4G: rand(60.0) + 20.0
+    of nsWiFi: rand(25.0) + 5.0
   
   # Simular probabilidad de fallo de red
   let failureProb = case agent.networkState
@@ -409,7 +299,7 @@ proc syncOperation*(agent: SyncAgent, op: var SyncOperation, currentTime: float)
   agent.avgSyncLatency = agent.avgSyncLatency * (1.0 - alpha) + latency * alpha
   
   # Simular consumo de datos (1-50 KB por operación)
-  let dataSize = rand(1.0..50.0) / 1024.0  # MB
+  let dataSize = (rand(49.0) + 1.0) / 1024.0  # MB
   let compressionFactor = if agent.syncGenome.compressionEnabled: 0.4 else: 1.0
   agent.dataConsumption += dataSize * compressionFactor
   
@@ -510,10 +400,6 @@ method evaluateFitness*(agent: SyncAgent, env: Environment): float =
   
   result = successScore + conflictScore + latencyScore + dataScore
 
-method clone*(agent: SyncAgent): Agent =
-  ## Clona el agente
-  result = newSyncAgent(agent.id, agent.syncGenome)
-
 ## ───────────────────────────────────────────────────────────────────────────
 ## Operadores Genéticos
 ## ───────────────────────────────────────────────────────────────────────────
@@ -532,28 +418,28 @@ proc mutateGenome*(genome: var SyncGenome, rate: float = 0.1) =
   for sp in SyncPriority:
     if rand(1.0) < rate:
       let current = genome.syncIntervals[sp]
-      genome.syncIntervals[sp] = clamp(current * rand(0.5..1.5), 0.5, 3600.0)
+      genome.syncIntervals[sp] = clamp(current * (rand(1.0) + 0.5), 0.5, 3600.0)
   
   # Mutar parámetros de retry
   if rand(1.0) < rate:
-    genome.maxRetries = clamp(genome.maxRetries + rand(-2..2), 3, 10)
+    genome.maxRetries = clamp(genome.maxRetries + rand(4) - 2, 3, 10)
   
   if rand(1.0) < rate:
-    genome.backoffMultiplier = clamp(genome.backoffMultiplier + rand(-0.5..0.5), 1.5, 3.0)
+    genome.backoffMultiplier = clamp(genome.backoffMultiplier + rand(1.0) - 0.5, 1.5, 3.0)
   
   if rand(1.0) < rate:
-    genome.initialBackoff = clamp(genome.initialBackoff + rand(-1.0..1.0), 1.0, 5.0)
+    genome.initialBackoff = clamp(genome.initialBackoff + rand(2.0) - 1.0, 1.0, 5.0)
   
   # Mutar batch size
   if rand(1.0) < rate:
-    genome.batchSize = clamp(genome.batchSize + rand(-10..10), 5, 50)
+    genome.batchSize = clamp(genome.batchSize + rand(20) - 10, 5, 50)
   
   # Mutar otros parámetros
   if rand(1.0) < rate:
-    genome.autoPriorityThreshold = clamp(genome.autoPriorityThreshold + rand(-5.0..5.0), 1.0, 24.0)
+    genome.autoPriorityThreshold = clamp(genome.autoPriorityThreshold + rand(10.0) - 5.0, 1.0, 24.0)
   
   if rand(1.0) < rate:
-    genome.conflictTolerance = clamp(genome.conflictTolerance + rand(-0.1..0.1), 0.1, 0.8)
+    genome.conflictTolerance = clamp(genome.conflictTolerance + rand(0.2) - 0.1, 0.1, 0.8)
   
   if rand(1.0) < rate:
     genome.preferWiFi = not genome.preferWiFi

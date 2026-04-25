@@ -3,68 +3,10 @@
 # ============================================================================
 # Agente especializado en generar, evolucionar y propagar conocimiento
 
-import agent_base, neuro_agent, evolution_core
+import agent_base, types, neuro_agent, evolution_core
 import random, sequtils, algorithm, tables, strutils, hashes
 
-# ============================================================================
-# Knowledge Representation
-# ============================================================================
-
-type
-  ConceptType* = enum
-    ctFact,         # Hecho concreto
-    ctRule,         # Regla lógica
-    ctPattern,      # Patrón reconocido
-    ctTheory,       # Teoría abstracta
-    ctHeuristic,    # Heurística práctica
-    ctAnalogy       # Analogía entre conceptos
-
-  Concept* = object
-    id*: int
-    conceptType*: ConceptType
-    content*: string            # Contenido del concepto
-    confidence*: float          # Confianza [0-1]
-    utility*: float             # Utilidad práctica
-    age*: int                   # Edad del concepto
-    usageCount*: int            # Veces usado
-    parentConcepts*: seq[int]   # Conceptos de los que deriva
-    tags*: seq[string]          # Etiquetas semánticas
-    hash*: Hash                 # Hash para deduplicación
-
-  KnowledgeBase* = ref object
-    concepts*: Table[int, Concept]
-    nextConceptId*: int
-    relationMatrix*: Table[(int, int), float]  # Fuerza de relación entre conceptos
-    totalConcepts*: int
-    averageConfidence*: float
-
-  KnowledgeGenome* = object
-    strategies*: seq[string]     # Estrategias de generación
-    biases*: seq[float]          # Sesgos hacia tipos de conocimiento
-    synthesisRate*: float        # Tasa de síntesis
-    criticalThinking*: float     # Nivel de pensamiento crítico
-    creativity*: float           # Nivel de creatividad
-    
-# ============================================================================
-# Knowledge Agent
-# ============================================================================
-
-type
-  KnowledgeAgent* = ref object of Agent
-    knowledgeBase*: KnowledgeBase
-    knowledgeGenome*: KnowledgeGenome
-    learningRate*: float
-    forgettingRate*: float
-    synthesisAttempts*: int
-    successfulSyntheses*: int
-    conceptsCreated*: int
-    conceptsPruned*: int
-    
-  KnowledgeEnvironment* = ref object of Environment
-    sharedKnowledge*: KnowledgeBase      # Conocimiento compartido
-    problems*: seq[string]                # Problemas a resolver
-    rewardedConcepts*: seq[int]           # Conceptos que resolvieron problemas
-    generation*: int
+# ConceptType, Concept, KnowledgeBase, KnowledgeGenome, KnowledgeAgent, KnowledgeEnvironment are now in types.nim
 
 # ============================================================================
 # Knowledge Base Operations
@@ -78,7 +20,7 @@ proc newKnowledgeBase*(): KnowledgeBase =
   result.totalConcepts = 0
   result.averageConfidence = 0.0
 
-proc hash*(cpt: Concept): Hash =
+proc getHash*(cpt: Concept): Hash =
   ## Hash basado en contenido para detectar duplicados
   var h: Hash = 0
   h = h !& hash(cpt.conceptType)
@@ -104,7 +46,7 @@ proc addConcept*(kb: KnowledgeBase, conceptType: ConceptType,
   
   # Calcular hash después de crear el concepto
   var mutableConcept = cpt
-  mutableConcept.hash = mutableConcept.hash()
+  mutableConcept.hash = mutableConcept.getHash()
   
   # Verificar si ya existe (deduplicación)
   for existing in kb.concepts.values:
@@ -479,7 +421,7 @@ proc mutateKnowledgeGenome*(agent: KnowledgeAgent, rate: float) =
     # Mutar estrategias
     let strategies = @["analogy", "combination", "abstraction", "specialization", "induction", "deduction"]
     if agent.knowledgeGenome.strategies.len > 0 and rand(1.0) < 0.5:
-      agent.knowledgeGenome.strategies.del(rand(agent.knowledgeGenome.strategies.len - 1))
+      agent.knowledgeGenome.strategies.delete(rand(agent.knowledgeGenome.strategies.len - 1))
     if rand(1.0) < 0.5:
       agent.knowledgeGenome.strategies.add(strategies[rand(strategies.len - 1)])
   
@@ -521,8 +463,6 @@ proc crossoverKnowledgeAgents*(parent1, parent2: KnowledgeAgent, nextId: int): K
 # Export
 # ============================================================================
 
-export ConceptType, Concept, KnowledgeBase, KnowledgeGenome
-export KnowledgeAgent, KnowledgeEnvironment
 export newKnowledgeBase, addConcept, getRelatedConcepts, strengthenRelation
 export newKnowledgeAgent, newKnowledgeEnvironment
 export synthesizeByAnalogy, synthesizeByCombination, synthesizeByAbstraction

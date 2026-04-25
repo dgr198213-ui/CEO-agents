@@ -3,58 +3,11 @@
 # ============================================================================
 # Defines base types and interfaces for all evolutionary agent systems
 
+import types
 import random, sequtils, algorithm, math
 
-# ============================================================================
-# Type Definitions
-# ============================================================================
-
-type
-  # Position in 2D space
-  Vector2D* = object
-    x*, y*: float
-
-  # Agent state representation
-  AgentState* = object
-    position*: Vector2D
-    velocity*: Vector2D
-    energy*: float
-    age*: int
-    fitness*: float
-
-  # Genome representation for evolution
-  Genome*[T] = object
-    genes*: seq[T]
-    fitness*: float
-    id*: int
-    generation*: int
-
-  # Neural network weights genome
-  NeuralGenome* = Genome[float]
-
-  # Behavioral tree genome
-  BehaviorGenome* = Genome[string]
-
-  # Base agent interface
-  Agent* = ref object of RootObj
-    id*: int
-    state*: AgentState
-    genome*: NeuralGenome
-    
-  # Environment interface
-  Environment* = ref object of RootObj
-    width*, height*: float
-    agents*: seq[Agent]
-    time*: int
-
-  # Evolution parameters
-  EvolutionParams* = object
-    populationSize*: int
-    mutationRate*: float
-    crossoverRate*: float
-    eliteSize*: int
-    maxGenerations*: int
-    tournamentSize*: int
+# Position in 2D space, AgentState, Genome, NeuralGenome, BehaviorGenome,
+# Agent, Environment, EvolutionParams are now in types.nim
 
 # ============================================================================
 # Vector2D Operations
@@ -141,8 +94,7 @@ proc wrapAround*(pos: var Vector2D, width, height: float) =
 # Export all symbols
 # ============================================================================
 
-export Vector2D, AgentState, Genome, NeuralGenome, BehaviorGenome
-export Agent, Environment, EvolutionParams
+export types
 export `+`, `-`, `*`, magnitude, normalize, distance
 export newGenome, clone
 export update, sense, act, evaluateFitness

@@ -3,39 +3,10 @@
 # ============================================================================
 # Implements neuroevolutionary agents that evolve both topology and weights
 
-import agent_base
+import agent_base, types
 import random, sequtils, algorithm, math, tables
 
-# ============================================================================
-# Neural Network Structure
-# ============================================================================
-
-type
-  NodeType* = enum
-    ntInput, ntHidden, ntOutput
-
-  Connection* = object
-    fromNode*: int
-    toNode*: int
-    weight*: float
-    enabled*: bool
-    innovation*: int
-
-  NeuralNode* = object
-    id*: int
-    nodeType*: NodeType
-    value*: float
-    bias*: float
-
-  NeuralNetwork* = ref object
-    nodes*: seq[NeuralNode]
-    connections*: seq[Connection]
-    nextNodeId*: int
-    innovationNumber*: int
-
-  NeuroAgent* = ref object of Agent
-    network*: NeuralNetwork
-    species*: int
+# NodeType, Connection, NeuralNode, NeuralNetwork, NeuroAgent are now in types.nim
 
 # ============================================================================
 # Neural Network Creation
@@ -109,7 +80,7 @@ proc activate*(nn: NeuralNetwork, inputs: seq[float]): seq[float] =
       nn.nodes[i].value = inputs[i]
 
   # Process connections (simple feedforward for now)
-  var processed = newSeq[bool](nn.nodes.len)
+  # var processed = newSeq[bool](nn.nodes.len)
   
   for conn in nn.connections:
     if conn.enabled and conn.fromNode < nn.nodes.len and conn.toNode < nn.nodes.len:
@@ -284,13 +255,16 @@ proc crossover*(parent1, parent2: NeuralNetwork): NeuralNetwork =
         connectionMap[conn.innovation] = conn
     # Disjoint/excess genes only inherited from parent1 (fitter)
   
-  result.connections = toSeq(connectionMap.values)
+  # Ensure topology consistency (basic weight alignment)
+  result.connections = @[]
+  for innov in sorted(toSeq(connectionMap.keys)):
+    result.connections.add(connectionMap[innov])
+
   result.innovationNumber = max(parent1.innovationNumber, parent2.innovationNumber)
 
 # ============================================================================
 # Export
 # ============================================================================
 
-export NodeType, Connection, NeuralNode, NeuralNetwork, NeuroAgent
 export newNeuralNetwork, newNeuroAgent, activate
 export mutateWeights, mutateAddNode, mutateAddConnection, crossover

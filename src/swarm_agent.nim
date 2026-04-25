@@ -3,44 +3,10 @@
 # ============================================================================
 # Implements flocking, foraging, and emergent collective behaviors
 
-import agent_base
+import agent_base, types
 import random, sequtils, algorithm, math
 
-# ============================================================================
-# Swarm Behavior Types
-# ============================================================================
-
-type
-  BehaviorType* = enum
-    btFlock,      # Reynolds' boids-like flocking
-    btForage,     # Resource gathering
-    btExplore,    # Area coverage
-    btDefend,     # Territory defense
-    btHybrid      # Mix of behaviors
-
-  SwarmRole* = enum
-    srScout,      # Explores new areas
-    srWorker,     # Collects resources
-    srGuard,      # Protects colony
-    srQueen       # Reproduces
-
-  SwarmAgent* = ref object of Agent
-    role*: SwarmRole
-    behavior*: BehaviorType
-    communication*: seq[float]  # Pheromone-like signals
-    neighbors*: seq[int]         # Nearby agent IDs
-    target*: Vector2D            # Current goal position
-    carrying*: bool              # Carrying resource?
-
-  Resource* = object
-    position*: Vector2D
-    amount*: float
-    collected*: bool
-
-  SwarmEnvironment* = ref object of Environment
-    resources*: seq[Resource]
-    nest*: Vector2D
-    pheromoneMap*: seq[seq[float]]
+# BehaviorType, SwarmRole, SwarmAgent, Resource, SwarmEnvironment are now in types.nim
 
 # ============================================================================
 # Swarm Agent Creation
@@ -286,6 +252,5 @@ method evaluateFitness*(agent: SwarmAgent, env: Environment): float =
 # Export
 # ============================================================================
 
-export BehaviorType, SwarmRole, SwarmAgent, Resource, SwarmEnvironment
 export newSwarmAgent, newSwarmEnvironment
 export cohesion, separation, alignment, findNearestResource

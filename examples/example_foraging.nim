@@ -3,7 +3,7 @@
 # ============================================================================
 # Demonstrates neuroevolution for a resource gathering task
 
-import agent_base, neuro_agent, evolution_core
+import "../src/agent_base", neuro_agent, evolution_core
 import strformat, random, sequtils, os, math
 
 # ============================================================================

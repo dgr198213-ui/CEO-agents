@@ -3,33 +3,10 @@
 # ============================================================================
 # Implements predator-prey dynamics and competitive coevolution
 
-import agent_base, neuro_agent, evolution_core
+import agent_base, types, neuro_agent, evolution_core
 import random, sequtils, algorithm, math
 
-# ============================================================================
-# Coevolution Types
-# ============================================================================
-
-type
-  CoevoType* = enum
-    ctPredator,   # Hunts prey
-    ctPrey,       # Avoids predators
-    ctCompetitor  # Competes for resources
-
-  CoevoAgent* = ref object of NeuroAgent
-    coevoType*: CoevoType
-    health*: float
-    attackPower*: float
-    defenseRating*: float
-    sensorRange*: float
-    kills*: int
-    escapes*: int
-
-  CoevoEnvironment* = ref object of Environment
-    predators*: seq[CoevoAgent]
-    prey*: seq[CoevoAgent]
-    foodSources*: seq[Vector2D]
-    generation*: int
+# CoevoType, CoevoAgent, CoevoEnvironment are now in types.nim
 
 # ============================================================================
 # Agent Creation
@@ -287,35 +264,6 @@ method evaluateFitness*(agent: CoevoAgent, env: Environment): float =
 # Evolutionary Operators for Coevolution
 # ============================================================================
 
-proc coevolve*(predators, prey: var seq[CoevoAgent], params: EvolutionParams) =
-  ## Coevolve both populations based on fitness
-  
-  # Sort by fitness
-  predators.sort(proc (a, b: CoevoAgent): int =
-    cmp(b.evaluateFitness(nil), a.evaluateFitness(nil))
-  )
-  
-  prey.sort(proc (a, b: CoevoAgent): int =
-    cmp(b.evaluateFitness(nil), a.evaluateFitness(nil))
-  )
-  
-  # Elite preservation + mutation of best
-  let eliteCount = max(1, params.populationSize div 10)
-  
-  # Mutate and breed new generation
-  # (Simplified - in practice would use tournament selection, crossover, etc.)
-
-# ============================================================================
-# Export
-# ============================================================================
-
-export CoevoType, CoevoAgent, CoevoEnvironment
-export newCoevoAgent, newCoevoEnvironment
-export handleInteractions, coevolve
-
-# ============================================================================
-# Crossover especializado para CoevoAgent
-# ============================================================================
 proc crossoverCoevoAgents*(parent1, parent2: CoevoAgent, nextId: int): CoevoAgent =
   ## Crea un descendiente CoevoAgent desde dos padres CoevoAgent
   result = CoevoAgent(
@@ -338,12 +286,6 @@ proc crossoverCoevoAgents*(parent1, parent2: CoevoAgent, nextId: int): CoevoAgen
     escapes: 0
   )
 
-export crossoverCoevoAgents
-
-
-# ============================================================================
-# Evolución especializada para CoevoAgent
-# ============================================================================
 proc evolveCoevoPopulation*(pop: Population[CoevoAgent], params: EvolutionParams,
                              nextIdStart: int): Population[CoevoAgent] =
   ## Evoluciona una población de CoevoAgents preservando el tipo de coevolución
@@ -393,8 +335,14 @@ proc evolveCoevoPopulation*(pop: Population[CoevoAgent], params: EvolutionParams
         escapes: 0
       )
     
-    mutateNeuroAgent(offspring, params)
+    var neuroOffspring: NeuroAgent = offspring
+    mutateNeuroAgent(neuroOffspring, params)
     result.individuals.add(offspring)
     inc nextId
 
-export evolveCoevoPopulation
+# ============================================================================
+# Export
+# ============================================================================
+
+export newCoevoAgent, newCoevoEnvironment
+export handleInteractions, crossoverCoevoAgents, evolveCoevoPopulation

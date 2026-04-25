@@ -3,7 +3,7 @@
 # ============================================================================
 # Generic evolutionary algorithm implementation for all agent types
 
-import agent_base, neuro_agent
+import agent_base, types, neuro_agent
 import random, sequtils, algorithm, math, tables, strformat
 
 # ============================================================================
@@ -127,7 +127,7 @@ proc rankSelection*[T](pop: Population[T]): T =
 # Mutation Operators (for NeuroAgents)
 # ============================================================================
 
-proc mutateNeuroAgent*(agent: NeuroAgent, params: EvolutionParams) =
+proc mutateNeuroAgent*(agent: var NeuroAgent, params: EvolutionParams) =
   ## Apply mutations to a neuroevolutionary agent
   
   # Weight mutation
@@ -206,7 +206,8 @@ proc evolvePopulation*[T: NeuroAgent](pop: Population[T], params: EvolutionParam
       offspring.network = parent1.network
     
     # Mutation
-    mutateNeuroAgent(offspring, params)
+    var neuroOffspring: NeuroAgent = offspring
+    mutateNeuroAgent(neuroOffspring, params)
     
     result.individuals.add(offspring)
     inc nextId

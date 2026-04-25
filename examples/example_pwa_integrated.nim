@@ -13,8 +13,8 @@
 ## - Evolución de 30 generaciones para optimizar cada subsistema
 ## ═══════════════════════════════════════════════════════════════════════════
 
-import cache_strategy_agent, notification_agent, sync_agent
-import agent_base, evolution_core
+import "../src/cache_strategy_agent", notification_agent, sync_agent
+import "../src/agent_base", evolution_core
 import std/[random, strformat, sequtils, times, algorithm, tables]
 
 ## ───────────────────────────────────────────────────────────────────────────

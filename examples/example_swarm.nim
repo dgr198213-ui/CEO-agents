@@ -3,7 +3,7 @@
 # ============================================================================
 # Demonstrates emergent collective behavior in swarm agents
 
-import agent_base, swarm_agent
+import "../src/agent_base", swarm_agent
 import random, sequtils, strformat
 
 proc runSwarmDemo() =
