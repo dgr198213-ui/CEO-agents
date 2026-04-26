@@ -15,7 +15,8 @@
 # - Comprehensive logging
 
 import agent_base, llm_integration, tool_registry
-import httpclient, json, times, strformat, sequtils, tables, algorithm
+import httpclient, json, times, strformat, sequtils, tables, algorithm, os
+import osproc, re, math, strutils
 
 # ============================================================================
 # Execution Types
@@ -117,14 +118,6 @@ type
     durationMs*: float
     toolsUsed*: seq[string]
     timestamp*: int64
-
-  TaskResult* = object
-    success*: bool
-    output*: string
-    artifacts*: seq[Artifact]
-    qualityScore*: float
-    agentFeedback*: string
-    executionMetrics*: ExecutionMetrics
 
 # ============================================================================
 # Utility Procedures
@@ -291,7 +284,7 @@ proc executeTaskStep*(context: var AgentContext, task: var TaskDefinition): Task
     if context.registry != nil:
       let path = task.parameters{"path"}.getStr("")
       if path.len > 0:
-        let result = executeTool(context.registry[], "FileRead",
+        let result = executeTool(context.registry, "FileRead",
           %* {"path": context.projectRoot / path}, context.agentId)
         if result.success:
           return TaskResult(
@@ -308,7 +301,7 @@ proc executeTaskStep*(context: var AgentContext, task: var TaskDefinition): Task
       let path = task.parameters{"path"}.getStr("")
       let content = task.parameters{"content"}.getStr("")
       if path.len > 0 and content.len > 0:
-        let result = executeTool(context.registry[], "FileWrite",
+        let result = executeTool(context.registry, "FileWrite",
           %* {"path": context.projectRoot / path, "content": content}, context.agentId)
         if result.success:
           return TaskResult(
@@ -322,6 +315,7 @@ proc executeTaskStep*(context: var AgentContext, task: var TaskDefinition): Task
   of "code_generation":
     # Use LLM to generate code
     if context.llmConfig.provider == lpOllama:
+      let requirements = task.parameters{"requirements"}.getStr("Write clean, efficient code")
       let request = LLMRequest(
         prompt: fmt"""
 Generate code for the following task:
@@ -329,7 +323,7 @@ Generate code for the following task:
 Task: {task.description}
 
 Requirements:
-{task.parameters{"requirements"}.getStr("Write clean, efficient code")}
+{requirements}
 
 Return the generated code.
 """,
@@ -346,7 +340,7 @@ Return the generated code.
         if task.parameters.hasKey("outputPath"):
           let path = task.parameters{"outputPath"}.getStr()
           if context.registry != nil:
-            let writeResult = executeTool(context.registry[], "FileWrite",
+            let writeResult = executeTool(context.registry, "FileWrite",
               %* {"path": context.projectRoot / path, "content": response.content}, context.agentId)
             if writeResult.success:
               toolsUsed.add("FileWrite")
@@ -363,8 +357,8 @@ Return the generated code.
           )
         )
       except Exception as e:
-        errors.add("Code generation failed: " & e.message)
-        return TaskResult(success: false, output: "", agentFeedback: fmt"Error: {e.message}")
+        errors.add("Code generation failed: " & e.msg)
+        return TaskResult(success: false, output: "", agentFeedback: fmt"Error: {e.msg}")
 
   of "code_review":
     # Use LLM to review code
@@ -372,20 +366,21 @@ Return the generated code.
     var codeContent = ""
 
     if codePath.len > 0 and context.registry != nil:
-      let readResult = executeTool(context.registry[], "FileRead",
+      let readResult = executeTool(context.registry, "FileRead",
         %* {"path": context.projectRoot / codePath}, context.agentId)
       if readResult.success:
         codeContent = readResult.output
         toolsUsed.add("FileRead")
 
     if codeContent.len > 0 and context.llmConfig.provider == lpOllama:
+      let language = task.parameters{"language"}.getStr("plaintext")
       let request = LLMRequest(
         prompt: fmt"""
 Review the following code and provide feedback:
 
 File: {codePath}
 
-```{task.parameters{"language"}.getStr("plaintext")}
+```{language}
 {codeContent}
 ```
 
@@ -417,12 +412,13 @@ Focus on:
           )
         )
       except Exception as e:
-        errors.add("Code review failed: " & e.message)
-        return TaskResult(success: false, output: "", agentFeedback: fmt"Error: {e.message}")
+        errors.add("Code review failed: " & e.msg)
+        return TaskResult(success: false, output: "", agentFeedback: fmt"Error: {e.msg}")
 
   of "analysis":
     # Use LLM to analyze and provide insights
     if context.llmConfig.provider == lpOllama:
+      let lastTaskContext = context.memory.shortTerm.getOrDefault("lastTask", newJNull())
       let request = LLMRequest(
         prompt: fmt"""
 Analyze the following and provide insights:
@@ -430,7 +426,7 @@ Analyze the following and provide insights:
 Task: {task.description}
 
 Context:
-{context.memory.shortTerm.getOrDefault("lastTask", newJNull()).toStr()}
+{lastTaskContext}
 
 Provide a thorough analysis.
 """,
@@ -455,8 +451,26 @@ Provide a thorough analysis.
           )
         )
       except Exception as e:
-        errors.add("Analysis failed: " & e.message)
-        return TaskResult(success: false, output: "", agentFeedback: fmt"Error: {e.message}")
+        errors.add("Analysis failed: " & e.msg)
+        return TaskResult(success: false, output: "", agentFeedback: fmt"Error: {e.msg}")
+
+  of "shell_execution":
+    let cmd = task.parameters{"command"}.getStr("")
+    if context.registry != nil:
+      let result = executeTool(context.registry, "ShellExecute",
+        %* {"command": cmd, "workingDir": context.workingDirectory},
+        context.agentId)
+      return TaskResult(
+        success: result.success,
+        output: result.output,
+        qualityScore: if result.success: 0.8 else: 0.2,
+        executionMetrics: ExecutionMetrics(
+          durationMs: (epochTime() - startTime) * 1000,
+          toolsUsed: @["ShellExecute"]
+        )
+      )
+    else:
+      return TaskResult(success: false, output: "", agentFeedback: "Tool registry not available")
 
   of "execution":
     # Generic execution via LLM
@@ -491,8 +505,8 @@ Current working directory: {context.workingDirectory}
           )
         )
       except Exception as e:
-        errors.add("Execution failed: " & e.message)
-        return TaskResult(success: false, output: "", agentFeedback: fmt"Error: {e.message}")
+        errors.add("Execution failed: " & e.msg)
+        return TaskResult(success: false, output: "", agentFeedback: fmt"Error: {e.msg}")
 
   of "validation":
     # Validate outputs
@@ -535,8 +549,8 @@ Summarize the findings and provide recommendations.
           )
         )
       except Exception as e:
-        errors.add("Report generation failed: " & e.message)
-        return TaskResult(success: false, output: "", agentFeedback: fmt"Error: {e.message}")
+        errors.add("Report generation failed: " & e.msg)
+        return TaskResult(success: false, output: "", agentFeedback: fmt"Error: {e.msg}")
 
   else:
     return TaskResult(
@@ -565,10 +579,10 @@ proc newAgentExecutor*(config: AgentExecutorConfig, context: AgentContext): Agen
   result.completedTasks = initTable[int, TaskResult]()
   result.failedTasks = initTable[int, TaskResult]()
 
-proc submitTask*(executor: var AgentExecutor, task: TaskDefinition) =
+proc submitTask*(executor: AgentExecutor, task: TaskDefinition) =
   executor.taskQueue.add(task)
 
-proc submitTask*(executor: var AgentExecutor, name, description, taskType: string,
+proc submitTask*(executor: AgentExecutor, name, description, taskType: string,
                 params: JsonNode = nil): int =
   let taskId = executor.taskQueue.len + 1
   var task = newTaskDefinition(taskId, name, description, taskType)
@@ -576,7 +590,7 @@ proc submitTask*(executor: var AgentExecutor, name, description, taskType: strin
   executor.taskQueue.add(task)
   return taskId
 
-proc executeNext*(executor: var AgentExecutor): bool =
+proc executeNext*(executor: AgentExecutor): bool =
   if executor.taskQueue.len == 0:
     return false
 
@@ -671,16 +685,16 @@ proc printExecutorStats*(executor: AgentExecutor) =
   var totalDuration = 0.0
 
   for taskId, result in executor.completedTasks:
-    if result.executionMetrics.tokenUsage > 0:
-      totalTokens += result.executionMetrics.tokenUsage
+    if result.executionMetrics.tokensUsed > 0:
+      totalTokens += result.executionMetrics.tokensUsed
       totalCost += result.executionMetrics.cost
       totalDuration += result.executionMetrics.durationMs
 
   echo ""
   echo "Metrics (completed tasks):"
   echo "  Total tokens used: ", totalTokens
-  echo "  Total cost: $", fmt"{$:>.4f}", totalCost
-  echo "  Total duration: ", fmt"{$:>.0f}", totalDuration, " ms"
+  echo "  Total cost: $", formatFloat(totalCost, ffDecimal, 4)
+  echo "  Total duration: ", formatFloat(totalDuration, ffDecimal, 0), " ms"
   echo "  Avg tokens/task: ", if executor.completedTasks.len > 0: totalTokens div executor.completedTasks.len else: 0
 
 # ============================================================================

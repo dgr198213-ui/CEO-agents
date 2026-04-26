@@ -10,7 +10,7 @@
 ## - Response caching for common queries
 ## - Configurable model selection per agent type
 
-import httpclient, json, times, strutils, sequtils, tables, math
+import httpclient, json, times, strutils, sequtils, tables, math, re
 
 # ============================================================================
 # Configuration Types
@@ -124,11 +124,11 @@ type
 # ============================================================================
 
 const
-  OpenAI GPT4Cost* = 0.03
-  OpenAI GPT4032kCost* = 0.06
-  OpenAI GPT35TurboCost* = 0.002
-  Anthropic Claude3Cost* = 0.015
-  Anthropic Claude32Cost* = 0.018
+  OpenAIGPT4Cost* = 0.03
+  OpenAIGPT4032kCost* = 0.06
+  OpenAIGPT35TurboCost* = 0.002
+  AnthropicClaude3Cost* = 0.015
+  AnthropicClaude32Cost* = 0.018
   OllamaLocalCost* = 0.0  # Free for local models
 
 # ============================================================================
@@ -187,7 +187,7 @@ proc parseOpenAIResponse*(response: string): LLMResponse =
     completionTokens = usage["completion_tokens"].getInt()
 
   let totalTokens = promptTokens + completionTokens
-  let cost = float(totalTokens) / 1000.0 * OpenAI GPT4Cost  # Simplified
+  let cost = float(totalTokens) / 1000.0 * OpenAIGPT4Cost  # Simplified
 
   result = LLMResponse(
     content: content,
@@ -208,12 +208,13 @@ proc callOpenAI*(config: ModelConfig, request: LLMRequest): LLMResponse =
   })
 
   try:
-    let response = globalClient.post(config.baseUrl & "/v1/chat/completions", body, headers)
+    globalClient.headers = headers
+    let response = globalClient.post(config.baseUrl & "/v1/chat/completions", body)
 
     if response.status != "200":
       raise newException(ValueError, "OpenAI API error: " & response.status & " - " & response.body)
 
-    let llmResponse = parseOpenAIResponse(response.body)
+    var llmResponse = parseOpenAIResponse(response.body)
     llmResponse.latencyMs = (epochTime() - startTime) * 1000.0
 
     inc usageStats.totalRequests
@@ -223,7 +224,7 @@ proc callOpenAI*(config: ModelConfig, request: LLMRequest): LLMResponse =
     return llmResponse
 
   except Exception as e:
-    raise newException(ValueError, "OpenAI call failed: " & e.message)
+    raise newException(ValueError, "OpenAI call failed: " & e.msg)
 
 # ============================================================================
 # Provider Implementation: Anthropic
@@ -268,7 +269,7 @@ proc parseAnthropicResponse*(response: string): LLMResponse =
     outputTokens = usage["output_tokens"].getInt()
 
   let totalTokens = inputTokens + outputTokens
-  let cost = float(totalTokens) / 1000.0 * Anthropic Claude3Cost
+  let cost = float(totalTokens) / 1000.0 * AnthropicClaude3Cost
 
   result = LLMResponse(
     content: content,
@@ -291,12 +292,13 @@ proc callAnthropic*(config: ModelConfig, request: LLMRequest): LLMResponse =
   })
 
   try:
-    let response = globalClient.post(config.baseUrl & "/v1/messages", body, headers)
+    globalClient.headers = headers
+    let response = globalClient.post(config.baseUrl & "/v1/messages", body)
 
     if response.status != "200":
       raise newException(ValueError, "Anthropic API error: " & response.status & " - " & response.body)
 
-    let llmResponse = parseAnthropicResponse(response.body)
+    var llmResponse = parseAnthropicResponse(response.body)
     llmResponse.latencyMs = (epochTime() - startTime) * 1000.0
 
     inc usageStats.totalRequests
@@ -306,7 +308,7 @@ proc callAnthropic*(config: ModelConfig, request: LLMRequest): LLMResponse =
     return llmResponse
 
   except Exception as e:
-    raise newException(ValueError, "Anthropic call failed: " & e.message)
+    raise newException(ValueError, "Anthropic call failed: " & e.msg)
 
 # ============================================================================
 # Provider Implementation: Ollama (Local)
@@ -348,12 +350,13 @@ proc callOllama*(config: ModelConfig, request: LLMRequest): LLMResponse =
   let headers = newHttpHeaders({"Content-Type": "application/json"})
 
   try:
-    let response = globalClient.post(config.baseUrl & "/api/generate", body, headers)
+    globalClient.headers = headers
+    let response = globalClient.post(config.baseUrl & "/api/generate", body)
 
     if response.status != "200":
       raise newException(ValueError, "Ollama API error: " & response.status)
 
-    let llmResponse = parseOllamaResponse(response.body)
+    var llmResponse = parseOllamaResponse(response.body)
     llmResponse.latencyMs = (epochTime() - startTime) * 1000.0
 
     inc usageStats.totalRequests
@@ -363,7 +366,7 @@ proc callOllama*(config: ModelConfig, request: LLMRequest): LLMResponse =
     return llmResponse
 
   except Exception as e:
-    raise newException(ValueError, "Ollama call failed: " & e.message)
+    raise newException(ValueError, "Ollama call failed: " & e.msg)
 
 # ============================================================================
 # Unified LLM Interface
@@ -386,7 +389,7 @@ proc callLLM*(config: ModelConfig, request: LLMRequest, maxRetries: int = 3): LL
         return callOllama(config, request)
 
     except Exception as e:
-      lastError = e.message
+      lastError = e.msg
       inc retryCount
 
       if retryCount < maxRetries:
@@ -475,9 +478,9 @@ Consider dependencies, potential issues, and optimal execution order.""",
     userPromptTemplate: "Break down this task into steps:\n$TASK\n\nProject context:\n$CONTEXT"
   )
 
-proc fillTemplate*(template: PromptTemplate, variables: Table[string, string]): tuple[system: string, user: string] =
-  var systemPrompt = template.systemPrompt
-  var userPrompt = template.userPromptTemplate
+proc fillTemplate*(promptTempl: PromptTemplate, variables: Table[string, string]): tuple[system: string, user: string] =
+  var systemPrompt = promptTempl.systemPrompt
+  var userPrompt = promptTempl.userPromptTemplate
 
   for key, value in variables:
     systemPrompt = systemPrompt.replace("$" & key, value)
