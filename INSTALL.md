@@ -121,40 +121,25 @@ psql ceo_agents -f database/seed.sql
 
 ### 6. Configurar el LLM
 
-CEO-Agents soporta tres proveedores de LLM:
+CEO-Agents soporta múltiples proveedores de LLM. Puedes configurarlos a través del panel de `Configuración` en el frontend.
 
-**Ollama (Local, recomendado para desarrollo):**
+**Proveedores Soportados:**
 
-```bash
-# Instalar Ollama
-curl -fsSL https://ollama.ai/install.sh | sh
-
-# Descargar modelo
-ollama pull llama3
-
-# Configurar en .env
-# CEO_LLM_PROVIDER=ollama
-# CEO_LLM_MODEL=llama3
-# CEO_LLM_BASE_URL=http://localhost:11434
-```
-
-**OpenAI:**
-
-```bash
-# Configurar en .env
-# CEO_LLM_PROVIDER=openai
-# CEO_LLM_MODEL=gpt-4o-mini
-# OPENAI_API_KEY=sk-...
-```
-
-**Anthropic:**
-
-```bash
-# Configurar en .env
-# CEO_LLM_PROVIDER=anthropic
-# CEO_LLM_MODEL=claude-3-haiku-20240307
-# ANTHROPIC_API_KEY=sk-ant-...
-```
+*   **Ollama (Local):** Ejecuta modelos LLM localmente. Ideal para desarrollo y privacidad.
+    *   `ollama pull llama3`
+    *   `CEO_LLM_PROVIDER=ollama`, `CEO_LLM_MODEL=llama3`, `CEO_LLM_BASE_URL=http://localhost:11434`
+*   **OpenAI:** Acceso a GPT-4, GPT-3.5 y otros modelos de última generación.
+    *   `CEO_LLM_PROVIDER=openai`, `CEO_LLM_MODEL=gpt-4o-mini`, `OPENAI_API_KEY=sk-...`
+*   **Anthropic:** Acceso a Claude, un modelo de IA de última generación con excelente razonamiento.
+    *   `CEO_LLM_PROVIDER=anthropic`, `CEO_LLM_MODEL=claude-3-haiku-20240307`, `ANTHROPIC_API_KEY=sk-ant-...`
+*   **OpenRouter:** Acceso unificado a múltiples modelos (GPT-4, Claude, Llama, etc.) con una única API.
+    *   `CEO_LLM_PROVIDER=openrouter`, `CEO_LLM_MODEL=openai/gpt-3.5-turbo`, `OPENROUTER_API_KEY=sk-or-...`
+*   **Groq:** Inferencia ultra rápida con modelos de código abierto. Ideal para aplicaciones en tiempo real.
+    *   `CEO_LLM_PROVIDER=groq`, `CEO_LLM_MODEL=mixtral-8x7b-32768`, `GROQ_API_KEY=gsk-...`
+*   **DeepSeek:** Modelos económicos y eficientes con excelente relación calidad-precio.
+    *   `CEO_LLM_PROVIDER=deepseek`, `CEO_LLM_MODEL=deepseek-chat`, `DEEPSEEK_API_KEY=sk-...`
+*   **Mistral:** Modelos de IA de alto rendimiento con enfoque en privacidad y eficiencia.
+    *   `CEO_LLM_PROVIDER=mistral`, `CEO_LLM_MODEL=mistral-small-latest`, `MISTRAL_API_KEY=sk-...`
 
 ## Ejecutar el Proyecto
 
