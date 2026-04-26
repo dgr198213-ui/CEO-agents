@@ -1,0 +1,44 @@
+# ============================================================================
+# CEO-Agents - .dockerignore
+# ============================================================================
+
+# Git
+.git
+.gitignore
+
+# Documentación
+*.md
+docs/
+AUDIT_REPORT_PLAN.md
+
+# Tests
+tests/
+
+# Binarios compilados (se compilan dentro del container)
+bin/
+nimcache/
+*.o
+
+# Frontend (tiene su propio Dockerfile)
+frontend/
+
+# Archivos de desarrollo
+.env
+.env.local
+*.log
+
+# Scripts de desarrollo
+scripts/
+
+# Ejemplos (no necesarios en producción)
+examples/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

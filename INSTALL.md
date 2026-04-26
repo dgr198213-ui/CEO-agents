@@ -1,215 +1,233 @@
-# Guía de Instalación — CEO-Agents
+# CEO-Agents - Guia de Instalacion
+
+Esta guia cubre la instalacion y configuracion del entorno de desarrollo local para CEO-Agents.
 
 ## Requisitos del Sistema
 
-| Componente | Versión Mínima | Notas |
-|---|---|---|
-| **Nim** | 2.0.0+ | Lenguaje principal del proyecto |
-| **GCC** | 9.0+ | Compilador C backend para Nim |
-| **Sistema Operativo** | Linux, macOS, Windows | Probado en Ubuntu 22.04+ y macOS 13+ |
-| **RAM** | 512 MB | Para compilación y ejecución de ejemplos |
-| **Disco** | 200 MB | Incluyendo toolchain de Nim |
+| Componente | Version Minima | Notas |
+|------------|---------------|-------|
+| Sistema Operativo | Linux (Ubuntu 22.04+) / macOS 13+ / Windows (WSL2) | |
+| Nim | 2.0.8+ | Instalado via choosenim |
+| GCC | 9.0+ | Para compilar el backend Nim |
+| Node.js | 22+ | Para el frontend Next.js |
+| pnpm | 10+ | Gestor de paquetes del frontend |
+| Docker | 24+ | Para despliegue con contenedores |
+| Docker Compose | 2.20+ | Para orquestacion del stack |
+| PostgreSQL | 15+ | Base de datos (o via Docker) |
 
----
+## Instalacion Rapida con Docker (Recomendada)
 
-## Instalación Rápida (Recomendada)
-
-El método más sencillo es usar el script de instalación automático:
+La forma mas sencilla de levantar el proyecto completo es con Docker Compose:
 
 ```bash
 git clone https://github.com/dgr198213-ui/CEO-agents.git
 cd CEO-agents
-chmod +x install.sh
-./install.sh
+cp .env.example .env
+cp frontend/.env.example frontend/.env.local
+docker-compose up -d
 ```
 
-El script realiza automáticamente:
-1. Verifica e instala `gcc` si es necesario
-2. Instala Nim via `choosenim` si no está presente
-3. Compila todos los módulos y ejemplos
-4. Genera ejecutables en el directorio `./bin/`
+El panel de control estara disponible en `http://localhost:3000` y la API en `http://localhost:8080`.
 
----
+## Instalacion Manual
 
-## Instalación Manual
+### 1. Instalar Nim
 
-### Paso 1: Instalar GCC
-
-**Ubuntu/Debian:**
 ```bash
-sudo apt-get update
-sudo apt-get install -y gcc g++ build-essential
-```
+# Instalar choosenim (gestor de versiones de Nim)
+curl https://nim-lang.org/choosenim/init.sh -sSf | sh -s -- -y
 
-**macOS:**
-```bash
-xcode-select --install
-```
-
-**Windows:** Instalar [MinGW-w64](https://www.mingw-w64.org/) o usar WSL2.
-
-### Paso 2: Instalar Nim
-
-**Método recomendado — choosenim:**
-```bash
-curl https://nim-lang.org/choosenim/init.sh -sSf | sh
-```
-
-Añadir al PATH (agregar a `~/.bashrc` o `~/.zshrc`):
-```bash
+# Anadir al PATH (anadir tambien a ~/.bashrc o ~/.zshrc)
 export PATH="$HOME/.nimble/bin:$PATH"
-```
 
-**Verificar instalación:**
-```bash
+# Verificar instalacion
 nim --version
-# Nim Compiler Version 2.x.x
 ```
 
-### Paso 3: Clonar el Repositorio
+Alternativamente, usa el script incluido:
 
 ```bash
-git clone https://github.com/dgr198213-ui/CEO-agents.git
-cd CEO-agents
+./scripts/install_nim.sh
 ```
 
-### Paso 4: Compilar el Proyecto
+### 2. Compilar el Backend
 
-**Opción A — Script de build:**
 ```bash
-chmod +x build.sh
+# Compilar todos los modulos y ejemplos
 ./build.sh
+
+# Solo el servidor API
+./build.sh api
+
+# Modo release (optimizado)
+./build.sh --release api
+
+# Con soporte SQLite
+./build.sh --sqlite api
 ```
 
-**Opción B — Nimble:**
-```bash
-nimble build
-```
+El binario compilado se encontrara en `bin/api_wrapper`.
 
-**Opción C — Compilación manual de un ejemplo:**
-```bash
-nim c -r example_integrated_ceo_stack.nim
-```
-
----
-
-## Ejecutar los Ejemplos
-
-Una vez compilado, los ejecutables se encuentran en `./bin/`:
+### 3. Instalar el Frontend
 
 ```bash
-# CEO + Stack Agents (ejemplo principal)
-./bin/example_integrated_ceo_stack
-
-# Swarm Intelligence
-./bin/example_swarm
-
-# Knowledge Agents con evolución
-./bin/example_knowledge
-
-# Co-evolución predador-presa
-./bin/example_coevolution
-
-# Foraging Behavior
-./bin/example_foraging
-
-# Sistema PWA Evolutivo
-./bin/example_pwa_integrated
+cd frontend
+pnpm install
 ```
 
-O compilar y ejecutar directamente:
-```bash
-nim c -r example_integrated_ceo_stack.nim
-```
-
----
-
-## Compilación en Modo Release
-
-Para máximo rendimiento (recomendado para benchmarks):
+### 4. Configurar Variables de Entorno
 
 ```bash
-./build.sh --release
-# o
-nim c -d:release --opt:speed example_integrated_ceo_stack.nim
+# Backend
+cp .env.example .env
+
+# Frontend
+cp frontend/.env.example frontend/.env.local
 ```
 
----
+Edita los archivos `.env` y `frontend/.env.local` con tus configuraciones.
 
-## Estructura del Proyecto
+### 5. Configurar la Base de Datos
 
-```
-CEO-agents/
-├── agent_base.nim              # Clase base de todos los agentes
-├── evolution_core.nim          # Motor evolutivo genérico
-├── ceo_agent.nim               # Agente CEO principal
-├── stack_agents.nim            # Stack de agentes especializados
-├── neuro_agent.nim             # Agente con red neuronal
-├── swarm_agent.nim             # Agente de enjambre
-├── coevo_agent.nim             # Agente de co-evolución
-├── knowledge_agent.nim         # Agente de gestión del conocimiento
-├── cache_strategy_agent.nim    # Agente PWA: estrategias de caché
-├── notification_agent.nim      # Agente PWA: notificaciones push
-├── sync_agent.nim              # Agente PWA: sincronización offline
-├── example_integrated_ceo_stack.nim  # Ejemplo: CEO completo
-├── example_swarm.nim           # Ejemplo: Swarm
-├── example_knowledge.nim       # Ejemplo: Knowledge
-├── example_coevolution.nim     # Ejemplo: Co-evolución
-├── example_foraging.nim        # Ejemplo: Foraging
-├── example_pwa_integrated.nim  # Ejemplo: PWA completo
-├── install.sh                  # Script de instalación
-├── build.sh                    # Script de compilación
-├── CEO.nimble                  # Configuración del paquete Nim
-├── README.md                   # Documentación principal
-├── START_HERE.md               # Guía de inicio rápido
-└── INDEX.md                    # Índice del proyecto
-```
+**Opcion A: PostgreSQL con Docker**
 
----
-
-## Solución de Problemas
-
-### Error: `nim: command not found`
-
-Asegúrate de que `~/.nimble/bin` está en tu PATH:
 ```bash
-export PATH="$HOME/.nimble/bin:$PATH"
+docker run -d \
+  --name ceo-agents-db \
+  -e POSTGRES_DB=ceo_agents \
+  -e POSTGRES_USER=ceo \
+  -e POSTGRES_PASSWORD=ceo_secret \
+  -p 5432:5432 \
+  postgres:16-alpine
 ```
 
-### Error: `gcc: command not found`
+Aplicar migraciones:
 
-Instala las herramientas de compilación:
 ```bash
-# Ubuntu/Debian
-sudo apt-get install -y build-essential
+psql postgresql://ceo:ceo_secret@localhost:5432/ceo_agents \
+  -f database/migrations/001_initial_schema.sql
 
-# macOS
-xcode-select --install
+psql postgresql://ceo:ceo_secret@localhost:5432/ceo_agents \
+  -f database/seed.sql
 ```
 
-### Error de compilación en módulos
+**Opcion B: PostgreSQL local**
 
-Verifica que tienes Nim 2.0.0 o superior:
 ```bash
-nim --version
+createdb ceo_agents
+psql ceo_agents -f database/migrations/001_initial_schema.sql
+psql ceo_agents -f database/seed.sql
 ```
 
-Si tienes una versión anterior, actualiza con choosenim:
+### 6. Configurar el LLM
+
+CEO-Agents soporta tres proveedores de LLM:
+
+**Ollama (Local, recomendado para desarrollo):**
+
 ```bash
-choosenim update stable
+# Instalar Ollama
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Descargar modelo
+ollama pull llama3
+
+# Configurar en .env
+# CEO_LLM_PROVIDER=ollama
+# CEO_LLM_MODEL=llama3
+# CEO_LLM_BASE_URL=http://localhost:11434
 ```
 
-### Ejemplo `example_knowledge` tarda mucho
+**OpenAI:**
 
-Este ejemplo ejecuta evolución genética con muchas generaciones. Es normal que tome 1-5 minutos. Para una ejecución más rápida, compila en modo release:
 ```bash
-nim c -d:release -r example_knowledge.nim
+# Configurar en .env
+# CEO_LLM_PROVIDER=openai
+# CEO_LLM_MODEL=gpt-4o-mini
+# OPENAI_API_KEY=sk-...
 ```
 
----
+**Anthropic:**
 
-## Soporte
+```bash
+# Configurar en .env
+# CEO_LLM_PROVIDER=anthropic
+# CEO_LLM_MODEL=claude-3-haiku-20240307
+# ANTHROPIC_API_KEY=sk-ant-...
+```
 
-- Documentación completa: [README.md](README.md)
-- Guía de inicio: [START_HERE.md](START_HERE.md)
-- Índice de módulos: [INDEX.md](INDEX.md)
+## Ejecutar el Proyecto
+
+### Modo Desarrollo
+
+```bash
+# Terminal 1: Backend API
+./bin/api_wrapper
+
+# Terminal 2: Frontend
+cd frontend && pnpm dev
+```
+
+El panel de control estara disponible en `http://localhost:3000`.
+La API REST estara disponible en `http://localhost:8080`.
+
+### Modo Produccion (Docker)
+
+```bash
+docker-compose up -d
+```
+
+### Con Ollama (LLM Local)
+
+```bash
+docker-compose --profile ollama up -d
+```
+
+### Con Adminer (GUI de Base de Datos)
+
+```bash
+docker-compose --profile dev up -d
+# Accede a http://localhost:8081
+```
+
+## Ejecutar Tests
+
+```bash
+# Todos los tests
+./scripts/run_tests.sh
+
+# Solo backend Nim
+./scripts/run_tests.sh --nim-only
+
+# Solo frontend
+./scripts/run_tests.sh --frontend-only
+```
+
+## Verificar la Instalacion
+
+```bash
+# Verificar que la API responde
+curl http://localhost:8080/api/v1/health
+
+# Verificar agentes disponibles
+curl http://localhost:8080/api/v1/agents
+
+# Ejecutar una tarea de prueba
+curl -X POST http://localhost:8080/api/v1/execute \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Test","description":"Hello world","taskType":"generic","priority":"low"}'
+```
+
+## Solucion de Problemas
+
+**Error: `nim: command not found`**
+Asegurate de que `~/.nimble/bin` esta en tu `PATH`. Anade `export PATH="$HOME/.nimble/bin:$PATH"` a tu `~/.bashrc` o `~/.zshrc`.
+
+**Error de conexion a la base de datos**
+Verifica que `DATABASE_URL` en `.env` es correcta y que PostgreSQL esta corriendo.
+
+**Error de conexion al LLM**
+Si usas Ollama, asegurate de que el servicio esta corriendo con `ollama serve`. Si usas OpenAI/Anthropic, verifica que la API key es valida.
+
+**Puerto 8080 en uso**
+Cambia `API_PORT` en `.env` y `NEXT_PUBLIC_API_URL` en `frontend/.env.local`.

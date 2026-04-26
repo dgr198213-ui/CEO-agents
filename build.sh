@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 ## ═══════════════════════════════════════════════════════════════════════════
-## CEO-Agents - Script de Compilación
+## CEO-Agents - Script de Compilación v2.0
 ## ═══════════════════════════════════════════════════════════════════════════
-## Targets soportados:
-##   core      -> valida módulos del core
-##   examples  -> compila ejemplos ejecutables
-##   api       -> compila la API HTTP
-##   all       -> ejecuta core + examples + api
-## Uso: ./build.sh [--release] [--clean] [core|examples|api|all]
+## Estructura del proyecto:
+##   src/       -> Módulos del núcleo
+##   examples/  -> Ejemplos ejecutables
+##   tests/     -> Tests unitarios
+##   bin/       -> Binarios compilados (generado)
+##
+## Uso: ./build.sh [--release] [--clean] [--sqlite] [core|examples|api|tests|all]
 ## ═══════════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
-
 export PATH="$HOME/.nimble/bin:$PATH"
 
 CYAN='\033[0;36m'
@@ -20,88 +20,102 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-NIM_FLAGS=("-d:debug" "--hints:off")
+NIM_FLAGS=("-d:debug" "--hints:off" "--warnings:off")
 TARGET="all"
 CLEAN=false
 SQLITE_DEFINE=()
 
 for arg in "$@"; do
   case "$arg" in
-    --release)
-      NIM_FLAGS=("-d:release" "--opt:speed" "--hints:off")
-      ;;
-    --clean)
-      CLEAN=true
-      ;;
-    core|examples|api|all)
-      TARGET="$arg"
-      ;;
+    --release) NIM_FLAGS=("-d:release" "--opt:speed" "--hints:off" "--warnings:off") ;;
+    --clean)   CLEAN=true ;;
+    --sqlite)  SQLITE_DEFINE=("-d:ceoEnableSqliteTools") ;;
+    core|examples|api|tests|all) TARGET="$arg" ;;
     *)
       echo -e "${RED}Argumento desconocido: $arg${NC}"
-      exit 1
-      ;;
+      echo "Uso: ./build.sh [--release] [--clean] [--sqlite] [core|examples|api|tests|all]"
+      exit 1 ;;
   esac
 done
 
+# Activar SQLite también via variable de entorno
 if [[ "${CEO_ENABLE_SQLITE_TOOLS:-0}" == "1" ]]; then
   SQLITE_DEFINE=("-d:ceoEnableSqliteTools")
 fi
 
+# ============================================================================
+# Módulos del núcleo (src/) - solo validación de sintaxis
+# ============================================================================
 CORE_MODULES=(
-  "agent_base.nim"
-  "evolution_core.nim"
-  "neuro_agent.nim"
-  "swarm_agent.nim"
-  "coevo_agent.nim"
-  "knowledge_agent.nim"
-  "llm_integration.nim"
-  "tool_registry.nim"
-  "agent_execution_engine.nim"
-  "ceo_agent.nim"
-  "example_ceo_functional.nim"
+  "src/agent_base.nim"
+  "src/llm_integration.nim"
+  "src/tool_registry.nim"
+  "src/evolution_core.nim"
+  "src/neuro_agent.nim"
+  "src/swarm_agent.nim"
+  "src/coevo_agent.nim"
+  "src/knowledge_agent.nim"
+  "src/agent_execution_engine.nim"
+  "src/ceo_agent.nim"
+  "src/cache_strategy_agent.nim"
+  "src/notification_agent.nim"
+  "src/sync_agent.nim"
 )
 
+# ============================================================================
+# Ejemplos ejecutables (examples/)
+# ============================================================================
 EXAMPLES=(
-  "example_integrated_ceo_stack.nim"
-  "example_swarm.nim"
-  "example_knowledge.nim"
-  "example_coevolution.nim"
-  "example_foraging.nim"
-  "example_pwa_integrated.nim"
-  "example_ceo_functional.nim"
+  "examples/example_ceo_functional.nim"
+  "examples/example_integrated_ceo_stack.nim"
+  "examples/example_swarm.nim"
+  "examples/example_knowledge.nim"
+  "examples/example_coevolution.nim"
+  "examples/example_foraging.nim"
+  "examples/example_pwa_integrated.nim"
 )
 
+# ============================================================================
+# API REST
+# ============================================================================
 API_TARGETS=(
-  "api_wrapper.nim"
+  "src/api_wrapper.nim"
+)
+
+# ============================================================================
+# Tests
+# ============================================================================
+TEST_TARGETS=(
+  "tests/test_agent_base.nim"
+  "tests/test_evolution_core.nim"
+  "tests/test_tool_registry.nim"
+  "tests/test_ceo_agent.nim"
+  "tests/test_api_endpoints.nim"
 )
 
 print_header() {
-  echo -e "${CYAN}CEO-Agents Build System${NC}"
-  echo "Target: ${TARGET}"
-
+  echo -e "${CYAN}"
+  echo "═══════════════════════════════════════════════════════════════════════"
+  echo "  CEO-Agents Build System v2.0"
+  echo "═══════════════════════════════════════════════════════════════════════"
+  echo -e "${NC}"
+  echo "  Target: ${TARGET}"
   local mode="DEBUG"
   for flag in "${NIM_FLAGS[@]}"; do
-    if [[ "$flag" == "-d:release" ]]; then
-      mode="RELEASE"
-      break
-    fi
+    [[ "$flag" == "-d:release" ]] && mode="RELEASE" && break
   done
-  echo "Modo: $mode"
-
-  if [[ ${#SQLITE_DEFINE[@]} -gt 0 ]]; then
-    echo "SQLite tools: habilitadas"
-  else
-    echo "SQLite tools: deshabilitadas (build base estable)"
-  fi
+  echo "  Modo:   $mode"
+  [[ ${#SQLITE_DEFINE[@]} -gt 0 ]] && echo "  SQLite: HABILITADO" || echo "  SQLite: deshabilitado (usa --sqlite para activar)"
   echo ""
 }
 
 ensure_nim() {
   if ! command -v nim >/dev/null 2>&1; then
-    echo -e "${RED}Nim no está disponible en PATH.${NC}"
-    echo "Ejecuta ./install.sh o añade ~/.nimble/bin al PATH."
+    echo -e "${RED}✗ Nim no está disponible en PATH.${NC}"
+    echo "  Ejecuta ./install.sh o añade ~/.nimble/bin al PATH."
     exit 1
   fi
+  echo -e "${GREEN}✓ Nim: $(nim --version | head -1)${NC}"
 }
 
 clean_build() {
@@ -119,32 +133,29 @@ compile_check() {
     echo -e "${GREEN}✓${NC}"
     return 0
   fi
-
   echo -e "${RED}✗${NC}"
-  grep -E "Error:|Hint:" /tmp/ceo-build.log | head -5 || cat /tmp/ceo-build.log | head -20
+  grep -E "Error:|Warning:" /tmp/ceo-build.log | head -8 || cat /tmp/ceo-build.log | head -20
   return 1
 }
 
 compile_binary() {
   local src="$1"
-  local out="bin/${src%.nim}"
-  echo -n "  Compilando $src... "
+  local name; name="$(basename "${src%.nim}")"
+  local out="bin/${name}"
+  echo -n "  Compilando $src -> $out... "
   local extra_flags=()
-  if [[ "$src" == "api_wrapper.nim" ]]; then
-    extra_flags=("--threads:off")
-  fi
+  [[ "$src" == *"api_wrapper"* ]] && extra_flags=("--threads:off")
   if nim c "${NIM_FLAGS[@]}" "${extra_flags[@]}" "${SQLITE_DEFINE[@]}" -o:"$out" "$src" >/tmp/ceo-build.log 2>&1; then
     echo -e "${GREEN}✓${NC}"
     return 0
   fi
-
   echo -e "${RED}✗${NC}"
-  grep -E "Error:|Hint:" /tmp/ceo-build.log | head -5 || cat /tmp/ceo-build.log | head -20
+  grep -E "Error:|Warning:" /tmp/ceo-build.log | head -8 || cat /tmp/ceo-build.log | head -20
   return 1
 }
 
 run_core() {
-  echo "Validando core:"
+  echo -e "${CYAN}Validando módulos del núcleo (src/):${NC}"
   local failed=0
   for module in "${CORE_MODULES[@]}"; do
     compile_check "$module" || failed=$((failed + 1))
@@ -153,7 +164,7 @@ run_core() {
 }
 
 run_examples() {
-  echo "Compilando ejemplos:"
+  echo -e "${CYAN}Compilando ejemplos (examples/):${NC}"
   mkdir -p bin
   local failed=0
   for example in "${EXAMPLES[@]}"; do
@@ -163,11 +174,27 @@ run_examples() {
 }
 
 run_api() {
-  echo "Compilando API:"
+  echo -e "${CYAN}Compilando API REST (src/api_wrapper.nim):${NC}"
   mkdir -p bin
+  compile_binary "src/api_wrapper.nim"
+}
+
+run_tests() {
+  echo -e "${CYAN}Ejecutando tests (tests/):${NC}"
   local failed=0
-  for target in "${API_TARGETS[@]}"; do
-    compile_binary "$target" || failed=$((failed + 1))
+  for test_file in "${TEST_TARGETS[@]}"; do
+    if [[ -f "$test_file" ]]; then
+      echo -n "  Ejecutando $test_file... "
+      if nim c -r "${NIM_FLAGS[@]}" "${SQLITE_DEFINE[@]}" "$test_file" >/tmp/ceo-test.log 2>&1; then
+        echo -e "${GREEN}✓${NC}"
+      else
+        echo -e "${RED}✗${NC}"
+        tail -10 /tmp/ceo-test.log
+        failed=$((failed + 1))
+      fi
+    else
+      echo -e "  ${YELLOW}⚠ $test_file no encontrado (skipping)${NC}"
+    fi
   done
   return $failed
 }
@@ -175,28 +202,20 @@ run_api() {
 main() {
   ensure_nim
   print_header
-
-  if [[ "$CLEAN" == true ]]; then
-    clean_build
-  fi
+  [[ "$CLEAN" == true ]] && clean_build
 
   local failed=0
   case "$TARGET" in
-    core)
-      run_core || failed=$?
-      ;;
-    examples)
-      run_examples || failed=$?
-      ;;
-    api)
-      run_api || failed=$?
-      ;;
+    core)     run_core     || failed=$? ;;
+    examples) run_examples || failed=$? ;;
+    api)      run_api      || failed=$? ;;
+    tests)    run_tests    || failed=$? ;;
     all)
-      run_core || failed=$((failed + $?))
+      run_core     || failed=$((failed + $?))
       echo ""
       run_examples || failed=$((failed + $?))
       echo ""
-      run_api || failed=$((failed + $?))
+      run_api      || failed=$((failed + $?))
       ;;
   esac
 

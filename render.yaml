@@ -1,0 +1,54 @@
+# ============================================================================
+# CEO-Agents - Render Configuration
+# ============================================================================
+# Despliegue en Render: https://render.com
+#
+# Para desplegar:
+#   1. Conecta tu repositorio GitHub en render.com
+#   2. Render detectará este archivo automáticamente
+# ============================================================================
+
+services:
+  # ── Backend API ─────────────────────────────────────────────────────────
+  - type: web
+    name: ceo-agents-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: CEO_PORT
+        value: 8080
+      - key: CEO_LLM_PROVIDER
+        value: openai
+      - key: CEO_LLM_MODEL
+        value: gpt-4o-mini
+      - key: OPENAI_API_KEY
+        sync: false  # Configura manualmente en el dashboard de Render
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ceo-agents-db
+          property: connectionString
+
+  # ── Frontend ─────────────────────────────────────────────────────────────
+  - type: web
+    name: ceo-agents-frontend
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    plan: starter
+    healthCheckPath: /
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          name: ceo-agents-api
+          type: web
+          property: host
+
+# ── Base de Datos ──────────────────────────────────────────────────────────
+databases:
+  - name: ceo-agents-db
+    databaseName: ceo_agents
+    user: ceo
+    plan: starter

@@ -1,0 +1,173 @@
+// ============================================================================
+// CEO-Agents - Prisma Schema
+// ============================================================================
+// Base de datos: PostgreSQL (producción) / SQLite (desarrollo local)
+//
+// Para usar PostgreSQL:
+//   1. Configura DATABASE_URL en .env
+//   2. Cambia provider a "postgresql"
+//   3. npx prisma migrate dev
+//
+// Para SQLite local:
+//   DATABASE_URL="file:./dev.db"
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// Agentes
+// ============================================================================
+
+model Agent {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  specializations String[] // Array de strings
+  performance     Float    @default(0.5)
+  tasksCompleted  Int      @default(0)
+  status          AgentStatus @default(AVAILABLE)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tasks           Task[]
+  metrics         AgentMetric[]
+
+  @@map("agents")
+}
+
+enum AgentStatus {
+  AVAILABLE
+  BUSY
+  OFFLINE
+}
+
+// ============================================================================
+// Tareas
+// ============================================================================
+
+model Task {
+  id          String     @id @default(cuid())
+  name        String
+  description String
+  taskType    String
+  priority    TaskPriority @default(NORMAL)
+  status      TaskStatus   @default(PENDING)
+
+  // Resultado
+  success      Boolean?
+  output       String?  @db.Text
+  qualityScore Float?
+  agentFeedback String? @db.Text
+  durationMs   Float?
+  tokensUsed   Int?
+  cost         Float?
+
+  // Relaciones
+  agentId     String?
+  agent       Agent?   @relation(fields: [agentId], references: [id])
+
+  artifacts   Artifact[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  completedAt DateTime?
+
+  @@map("tasks")
+  @@index([agentId])
+  @@index([taskType])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum TaskStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+// ============================================================================
+// Artefactos generados por tareas
+// ============================================================================
+
+model Artifact {
+  id           String @id @default(cuid())
+  name         String
+  path         String
+  artifactType String
+  size         Int    @default(0)
+  checksum     String @default("")
+
+  taskId       String
+  task         Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime @default(now())
+
+  @@map("artifacts")
+  @@index([taskId])
+}
+
+// ============================================================================
+// Métricas de agentes (histórico)
+// ============================================================================
+
+model AgentMetric {
+  id          String   @id @default(cuid())
+  agentId     String
+  agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  performance Float
+  tasksCount  Int
+  successRate Float
+  avgDurationMs Float
+  recordedAt  DateTime @default(now())
+
+  @@map("agent_metrics")
+  @@index([agentId])
+  @@index([recordedAt])
+}
+
+// ============================================================================
+// Estadísticas del sistema (snapshots periódicos)
+// ============================================================================
+
+model SystemSnapshot {
+  id              String   @id @default(cuid())
+  totalTasks      Int
+  successfulTasks Int
+  successRate     Float
+  totalRequests   Int
+  totalTokens     Int
+  totalCost       Float
+  cacheHits       Int
+  uptimeSeconds   Float
+  recordedAt      DateTime @default(now())
+
+  @@map("system_snapshots")
+  @@index([recordedAt])
+}
+
+// ============================================================================
+// Configuración del sistema (key-value store)
+// ============================================================================
+
+model SystemConfig {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+
+  @@map("system_config")
+}

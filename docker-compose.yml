@@ -1,0 +1,157 @@
+## ============================================================================
+## CEO-Agents - Docker Compose
+## ============================================================================
+## Stack completo: Backend (Nim) + Frontend (Next.js) + PostgreSQL + Ollama
+##
+## Uso rápido:
+##   docker-compose up -d
+##
+## Con Ollama (LLM local):
+##   docker-compose --profile ollama up -d
+##
+## Solo desarrollo (sin Ollama):
+##   docker-compose up -d db api frontend
+## ============================================================================
+
+services:
+
+  # ── Base de Datos PostgreSQL ──────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: ceo-agents-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ceo_agents}
+      POSTGRES_USER: ${POSTGRES_USER:-ceo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ceo_secret}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ceo} -d ${POSTGRES_DB:-ceo_agents}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - ceo-network
+
+  # ── Backend API (Nim) ─────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_DATE: ${BUILD_DATE:-}
+        GIT_SHA: ${GIT_SHA:-}
+    container_name: ceo-agents-api
+    restart: unless-stopped
+    environment:
+      CEO_PORT: 8080
+      CEO_HOST: 0.0.0.0
+      CEO_LLM_PROVIDER: ${CEO_LLM_PROVIDER:-ollama}
+      CEO_LLM_MODEL: ${CEO_LLM_MODEL:-llama3}
+      CEO_LLM_BASE_URL: ${CEO_LLM_BASE_URL:-http://ollama:11434}
+      CEO_OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      CEO_ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CEO_LOG_LEVEL: ${CEO_LOG_LEVEL:-info}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ceo}:${POSTGRES_PASSWORD:-ceo_secret}@db:5432/${POSTGRES_DB:-ceo_agents}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - ceo-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ceo-api.rule=Host(`api.ceo-agents.local`)"
+
+  # ── Frontend (Next.js) ────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+    container_name: ceo-agents-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:8080}
+      PORT: 3000
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - ceo-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ceo-frontend.rule=Host(`ceo-agents.local`)"
+
+  # ── Ollama (LLM Local, opcional) ──────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ceo-agents-ollama
+    restart: unless-stopped
+    profiles:
+      - ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    environment:
+      OLLAMA_KEEP_ALIVE: 24h
+    networks:
+      - ceo-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # ── Adminer (DB GUI, solo desarrollo) ────────────────────────────────────
+  adminer:
+    image: adminer:latest
+    container_name: ceo-agents-adminer
+    restart: unless-stopped
+    profiles:
+      - dev
+    ports:
+      - "${ADMINER_PORT:-8081}:8080"
+    depends_on:
+      - db
+    networks:
+      - ceo-network
+
+# ── Volúmenes ─────────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  ollama_data:
+    driver: local
+
+# ── Redes ─────────────────────────────────────────────────────────────────────
+networks:
+  ceo-network:
+    driver: bridge
+    name: ceo-agents-network

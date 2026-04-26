@@ -1,0 +1,255 @@
+name: CI - Build, Lint & Test
+
+on:
+  push:
+    branches: [main, develop, "feature/**", "fix/**"]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIM_VERSION: "2.0.8"
+
+jobs:
+  # ============================================================================
+  # Job 1: Compilación y validación del backend Nim
+  # ============================================================================
+  nim-build:
+    name: "Nim Backend - Build & Validate"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Nim
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.nimble
+            ~/.choosenim
+          key: nim-${{ env.NIM_VERSION }}-${{ runner.os }}
+          restore-keys: nim-${{ env.NIM_VERSION }}-
+
+      - name: Install Nim via choosenim
+        run: |
+          curl https://nim-lang.org/choosenim/init.sh -sSf | sh -s -- -y
+          echo "$HOME/.nimble/bin" >> $GITHUB_PATH
+          echo "$HOME/.choosenim/toolchains/nim-${{ env.NIM_VERSION }}/bin" >> $GITHUB_PATH
+
+      - name: Verify Nim version
+        run: nim --version
+
+      - name: Validate core modules (src/)
+        run: |
+          for module in \
+            src/agent_base.nim \
+            src/llm_integration.nim \
+            src/tool_registry.nim \
+            src/evolution_core.nim \
+            src/neuro_agent.nim \
+            src/swarm_agent.nim \
+            src/coevo_agent.nim \
+            src/knowledge_agent.nim \
+            src/agent_execution_engine.nim \
+            src/ceo_agent.nim \
+            src/cache_strategy_agent.nim \
+            src/notification_agent.nim \
+            src/sync_agent.nim; do
+            echo "Checking $module..."
+            nim c -d:debug --hints:off --warnings:off -o:/dev/null "$module"
+          done
+
+      - name: Build examples
+        run: |
+          mkdir -p bin
+          for example in \
+            examples/example_ceo_functional.nim \
+            examples/example_swarm.nim \
+            examples/example_knowledge.nim; do
+            echo "Building $example..."
+            nim c -d:debug --hints:off --warnings:off -o:"bin/$(basename ${example%.nim})" "$example"
+          done
+
+      - name: Build API server
+        run: |
+          nim c -d:debug --hints:off --warnings:off --threads:off -o:bin/api_wrapper src/api_wrapper.nim
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: nim-binaries
+          path: bin/
+          retention-days: 7
+
+  # ============================================================================
+  # Job 2: Tests Nim
+  # ============================================================================
+  nim-tests:
+    name: "Nim Backend - Tests"
+    runs-on: ubuntu-latest
+    needs: nim-build
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Nim
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.nimble
+            ~/.choosenim
+          key: nim-${{ env.NIM_VERSION }}-${{ runner.os }}
+
+      - name: Install Nim
+        run: |
+          curl https://nim-lang.org/choosenim/init.sh -sSf | sh -s -- -y
+          echo "$HOME/.nimble/bin" >> $GITHUB_PATH
+
+      - name: Run Nim tests
+        run: |
+          for test_file in tests/test_*.nim; do
+            if [ -f "$test_file" ]; then
+              echo "Running $test_file..."
+              nim c -r -d:debug --hints:off --warnings:off "$test_file"
+            else
+              echo "No test files found (skipping)"
+            fi
+          done
+
+  # ============================================================================
+  # Job 3: Frontend Next.js - Lint, TypeCheck & Build
+  # ============================================================================
+  frontend-build:
+    name: "Frontend - Lint, TypeCheck & Build"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript check
+        run: pnpm exec tsc --noEmit
+
+      - name: ESLint
+        run: pnpm run lint
+
+      - name: Build production
+        run: pnpm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8080
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/.next/
+          retention-days: 7
+
+  # ============================================================================
+  # Job 4: Frontend Tests
+  # ============================================================================
+  frontend-tests:
+    name: "Frontend - Tests"
+    runs-on: ubuntu-latest
+    needs: frontend-build
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests (if available)
+        run: |
+          if [ -f "package.json" ] && grep -q '"test"' package.json; then
+            pnpm test --passWithNoTests
+          else
+            echo "No test script found - skipping"
+          fi
+
+  # ============================================================================
+  # Job 5: Security - Dependabot & audit
+  # ============================================================================
+  security-audit:
+    name: "Security Audit"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Frontend security audit
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm audit --audit-level=high || echo "::warning::Security vulnerabilities found - review pnpm audit output"
+
+      - name: Check for secrets in code
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --only-verified
+        continue-on-error: true
