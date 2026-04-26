@@ -9,7 +9,7 @@
 ## El sistema ejecuta tareas reales de desarrollo de software
 
 import agent_base, llm_integration, tool_registry, agent_execution_engine
-import json, strformat, sequtils, algorithm, times
+import json, strformat, sequtils, algorithm, times, random, httpclient, strutils, tables
 
 randomize()
 
@@ -189,7 +189,7 @@ if __name__ == "__main__":
         "content": codeContent,
         "createDirs": true
       }
-      let writeResult = executeTool(registry[], "FileWrite", params, agent.name)
+      let writeResult = executeTool(registry, "FileWrite", params, agent.name)
 
       if writeResult.success:
         echo &"     ✅ Archivo generado: {filePath}"
@@ -239,7 +239,7 @@ Fecha: {now().format("yyyy-MM-dd HH:mm:ss")}
         "content": docContent,
         "createDirs": true
       }
-      let writeResult = executeTool(registry[], "FileWrite", params, agent.name)
+      let writeResult = executeTool(registry, "FileWrite", params, agent.name)
 
       if writeResult.success:
         echo &"     ✅ Documentación creada: {filePath}"
@@ -390,7 +390,7 @@ when isMainModule:
     echo &"═══ Tarea {i+1}/{projectTasks.len} ═══"
 
     # CEO asigna tarea al mejor agente
-    let assignedAgent = ceo.assignTaskToAgent(task)
+    var assignedAgent = ceo.assignTaskToAgent(task)
     echo &"  👤 Asignado a: {assignedAgent.name}"
 
     # Ejecutar tarea
@@ -422,8 +422,8 @@ when isMainModule:
   echo ""
 
   echo "📋 PERFORMANCE POR AGENTE:"
-  echo &"  {'Agente':<20} {'Completadas':<12} {'Performance':<12}"
-  echo &"  {'-'.repeat(20)} {'-'repeat(12)} {'-'repeat(12)}"
+  echo "  ", alignLeft("Agente", 20), " ", alignLeft("Completadas", 12), " ", alignLeft("Performance", 12)
+  echo "  ", "-".repeat(20), " ", "-".repeat(12), " ", "-".repeat(12)
 
   for agent in ceo.stackAgents:
     if agent.tasksCompleted > 0:

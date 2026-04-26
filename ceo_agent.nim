@@ -13,8 +13,8 @@
 ## - Aprendizaje de patrones de éxito mediante GA
 ## - Integración con sistema de ejecución real (agent_execution_engine)
 
-import agent_base, llm_integration, tool_registry, agent_execution_engine
-import random, math, tables, strutils, sequtils, algorithm, strformat, json
+import llm_integration, tool_registry, agent_execution_engine
+import random, math, tables, strutils, sequtils, algorithm, strformat, json, logging, options, times
 
 randomize()
 
@@ -140,12 +140,13 @@ proc randomCEOGenome*(): CEOGenome =
   result.collaborationBonus = 0.1 + rand(0.2)
 
 proc initCEOAgent*(name: string = "CEO-Agent", registry: ToolRegistry = nil,
-                  llmConfig: ModelConfig = nil): CEOAgent =
+                  llmConfig: Option[ModelConfig] = none(ModelConfig)): CEOAgent =
   result.name = name
   result.genome = randomCEOGenome()
   result.fitness = 0.0
   result.registry = registry
-  result.llmConfig = llmConfig
+  if llmConfig.isSome:
+    result.llmConfig = llmConfig.get()
   result.evolutionGeneration = 0
   result.bestFitness = 0.0
 
@@ -156,7 +157,7 @@ proc initCEOAgent*(name: string = "CEO-Agent", registry: ToolRegistry = nil,
     registerShellTools(result.registry)
     registerCodeAnalysisTools(result.registry)
 
-  if result.llmConfig == nil:
+  if result.llmConfig.model == "":
     result.llmConfig = createDefaultConfig(lpOllama)
 
   # Create stack agents
@@ -251,7 +252,7 @@ proc executeTaskWithAgent*(ceo: var CEOAgent, task: var Task): TaskResult =
       agentFeedback: "Agent not found: " & task.assignedAgent
     )
 
-  let agent = ceo.stackAgents[agentIdx]
+  var agent = addr ceo.stackAgents[agentIdx]
 
   # Map task type to execution type
   var executionType: string
@@ -297,38 +298,36 @@ proc executeTaskWithAgent*(ceo: var CEOAgent, task: var Task): TaskResult =
 
   return execResult
 
-proc executeTask*(ceo: var CEOAgent, task: var Task) =
-  ## Simula ejecución de task con fallback si executor no disponible
-  var successProb = 0.3
-
-  # Buscar agente asignado
-  for sa in ceo.stackAgents:
-    if sa.name == task.assignedAgent:
-      # Bonus si task type está en specialization
-      if task.taskType in sa.specialization:
-        successProb += 0.4
-
-      # Bonus por performance del agente
-      successProb += sa.performance * 0.3
-
-      # Penalización si complejidad es muy alta para el agente
-      let maxComplexity = ceo.genome.complexityThreshold.getOrDefault(sa.name, 0.5)
-      if task.complexity > maxComplexity:
-        successProb *= 0.6
-
-      break
-
-  # Try real execution if available
-  let execResult = executeTaskWithAgent(ceo, task)
-
-  if execResult.success:
+proc executeTask*(ceo: var CEOAgent, task: var Task, useReal: bool = false) =
+  ## Ejecuta task: real si useReal=true, de lo contrario simulación rápida
+  if useReal and ceo.registry != nil:
+    debug(&"Ejecutando tarea real {task.id} asignada a {task.assignedAgent}")
+    let execResult = executeTaskWithAgent(ceo, task)
     task.successScore = execResult.qualityScore
+    task.completed = true
   else:
-    # Fallback to simulation
+    # Simulación rápida original para evolución
+    var successProb = 0.3
+
+    # Buscar agente asignado
+    for sa in ceo.stackAgents:
+      if sa.name == task.assignedAgent:
+        # Bonus si task type está en specialization
+        if task.taskType in sa.specialization:
+          successProb += 0.4
+
+        # Bonus por performance del agente
+        successProb += sa.performance * 0.3
+
+        # Penalización si complejidad es muy alta para el agente
+        let maxComplexity = ceo.genome.complexityThreshold.getOrDefault(sa.name, 0.5)
+        if task.complexity > maxComplexity:
+          successProb *= 0.6
+
+        break
+
     task.successScore = min(1.0, successProb + rand(0.3) - 0.15)
     task.completed = true
-
-  task.completed = true
 
   if task.successScore > 0.6:
     ceo.successfulTasks += 1
@@ -475,7 +474,7 @@ proc crossover*(g1, g2: CEOGenome): CEOGenome =
 ## ============================================================================
 
 proc evolveCEO*(popSize, generations: int, taskSet: seq[Task],
-               registry: ToolRegistry = nil, llmConfig: ModelConfig = nil): CEOAgent =
+               registry: ToolRegistry = nil, llmConfig: Option[ModelConfig] = none(ModelConfig)): CEOAgent =
   ## Evoluciona una población de CEO agents para optimizar routing
   ## Con capacidad de ejecución real de tareas
   var population: seq[CEOAgent] = @[]
@@ -619,15 +618,18 @@ when isMainModule:
 
   # Initialize system components
   echo "Inicializando componentes del sistema..."
-  let registry = initToolRegistry()
+  var registry = initToolRegistry()
   registerFileSystemTools(registry)
   registerShellTools(registry)
   registerCodeAnalysisTools(registry)
 
-  let llmConfig = createDefaultConfig(lpOllama)
+  let llmConfig = some(createDefaultConfig(lpOllama))
 
   echo ""
   echo "═════════════════════════════════════════════════════════════════════"
+
+  # Initialize logging
+  addHandler(newConsoleLogger())
 
   # Generate task set
   let taskSet = createProjectTasks()
@@ -674,8 +676,8 @@ when isMainModule:
 
   echo ""
   echo "📊 Stack Agents Performance:"
-  echo &"   {'Agente':<20} {'Tasks':<8} {'Perf':<8} {'Workload':<10}"
-  echo &"   {'-'repeat(20)} {'-'repeat(8)} {'-'repeat(8)} {'-'repeat(10)}"
+  echo "   ", alignLeft("Agente", 20), " ", alignLeft("Tasks", 8), " ", alignLeft("Perf", 8), " ", alignLeft("Workload", 10)
+  echo "   ", "-".repeat(20), " ", "-".repeat(8), " ", "-".repeat(8), " ", "-".repeat(10)
 
   for sa in bestCEO.stackAgents:
     if sa.tasksCompleted > 0:
@@ -706,3 +708,30 @@ when isMainModule:
   echo "El CEO Agent ha aprendido estrategias optimas de orquestacion"
   echo "para asignar tareas de desarrollo de software a agentes especializados."
   echo ""
+
+proc saveGenome*(genome: CEOGenome, filename: string) =
+  ## Guarda el genome en un archivo JSON
+  var routingNode = newJObject()
+  for tt, weights in genome.routingWeights:
+    var weightsNode = newJObject()
+    for agent, weight in weights:
+      weightsNode[agent] = %weight
+    routingNode[$tt] = weightsNode
+
+  var urgencyNode = newJObject()
+  for urg in TaskUrgency:
+    urgencyNode[$urg] = %genome.urgencyMultiplier[urg]
+
+  var thresholdNode = newJObject()
+  for agent, thresh in genome.complexityThreshold:
+    thresholdNode[agent] = %thresh
+
+  let obj = %* {
+    "routingWeights": routingNode,
+    "urgencyMultiplier": urgencyNode,
+    "complexityThreshold": thresholdNode,
+    "workloadCapacity": genome.workloadCapacity,
+    "reassignmentRate": genome.reassignmentRate,
+    "collaborationBonus": genome.collaborationBonus
+  }
+  writeFile(filename, obj.pretty())

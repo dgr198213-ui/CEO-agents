@@ -7,6 +7,7 @@ srcDir        = "."
 
 # Dependencies
 requires "nim >= 2.0.0"
+requires "db_connector"
 
 # Tasks
 task build, "Compila todos los ejemplos":

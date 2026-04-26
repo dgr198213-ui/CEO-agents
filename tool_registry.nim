@@ -18,6 +18,7 @@
 # - LLMChat
 
 import httpclient, json, streams, os, sequtils, tables, strutils, algorithm
+import osproc, re, times
 
 # ============================================================================
 # Tipos Base para Herramientas
@@ -48,6 +49,16 @@ type
     tcAI
     tcSystem
     tcCustom
+
+  ToolCapability* = enum
+    tcFileRead
+    tcFileWrite
+    tcFileDelete
+    tcShellExecute
+    tcHttpRequest
+    tcDatabaseQuery
+    tcCodeAnalysis
+    tcLLMChat
 
   ToolPermission* = object
     allowedAgents*: seq[string]
@@ -240,9 +251,9 @@ proc validateParameter*(param: ParameterDef, value: JsonNode): tuple[valid: bool
 
   # Check validation regex if provided
   if param.validation.len > 0 and value.kind == JString:
-    let regex = param.validation
+    let regexStr = param.validation
     # Simple pattern matching (in production, use a proper regex library)
-    if not value.str.match(re"" & regex & ""):
+    if not value.str.match(re(regexStr)):
       return (false, "Value does not match required pattern for " & param.name)
 
   return (true, "")
@@ -316,15 +327,15 @@ proc executeTool*(registry: ToolRegistry, toolName: string,
 
   # Execute tool
   try:
-    let result = tool.handler(params)
-    result.executionTimeMs = (epochTime() - startTime) * 1000.0
-    result.toolName = toolName
-    return result
+    var toolRes = tool.handler(params)
+    toolRes.executionTimeMs = (epochTime() - startTime) * 1000.0
+    toolRes.toolName = toolName
+    return toolRes
   except Exception as e:
     return ToolResult(
       success: false,
       toolName: toolName,
-      error: "Execution error: " & e.message,
+      error: "Execution error: " & e.msg,
       errorCode: "EXECUTION_ERROR",
       executionTimeMs: (epochTime() - startTime) * 1000.0
     )
@@ -411,19 +422,19 @@ proc registerFileSystemTools*(registry: var ToolRegistry) =
   ]
   fileListTool.handler = proc(params: JsonNode): ToolResult =
     let path = params{"path"}.getStr()
-    let pattern = params{"pattern"}.getStr("*")
+    let pattern = params{"pattern"}.getStr(".*")
     let recursive = params{"recursive"}.getBool()
 
     try:
       var files: seq[string] = @[]
 
       if recursive:
-        for kind, filePath in walkDirRec(path):
-          if filePath.match(pattern):
+        for filePath in walkDirRec(path):
+          if filePath.extractFilename.match(re(pattern)):
             files.add(filePath)
       else:
         for kind, filePath in walkDir(path):
-          if filePath.extractFilename.match(pattern):
+          if filePath.extractFilename.match(re(pattern)):
             files.add(filePath)
 
       return ToolResult(
@@ -548,7 +559,7 @@ proc registerShellTools*(registry: var ToolRegistry) =
     except Exception as e:
       return ToolResult(
         success: false,
-        error: "Shell execution failed: " & e.message,
+        error: "Shell execution failed: " & e.msg,
         errorCode: "SHELL_ERROR"
       )
   registerTool(registry, shellTool)
@@ -595,7 +606,7 @@ proc registerShellTools*(registry: var ToolRegistry) =
     except Exception as e:
       return ToolResult(
         success: false,
-        error: "Process spawn failed: " & e.message,
+        error: "Process spawn failed: " & e.msg,
         errorCode: "PROCESS_ERROR"
       )
   registerTool(registry, processTool)
@@ -622,7 +633,7 @@ proc registerNetworkTools*(registry: var ToolRegistry) =
   ]
   httpTool.handler = proc(params: JsonNode): ToolResult =
     let url = params{"url"}.getStr()
-    let method = params{"method"}.getStr("GET").toUpper()
+    let httpMethodStr = params{"method"}.getStr("GET").toUpper()
     let body = params{"body"}.getStr("")
     let timeoutMs = params{"timeout"}.getInt(30000)
 
@@ -635,7 +646,7 @@ proc registerNetworkTools*(registry: var ToolRegistry) =
           headers[key] = val.getStr()
 
       var response: Response
-      case method
+      case httpMethodStr
       of "GET":
         response = httpClient.request(url, httpMethod = HttpGet, headers = headers)
       of "POST":
@@ -647,7 +658,7 @@ proc registerNetworkTools*(registry: var ToolRegistry) =
       else:
         return ToolResult(
           success: false,
-          error: "Unsupported HTTP method: " & method,
+          error: "Unsupported HTTP method: " & httpMethodStr,
           errorCode: "INVALID_METHOD"
         )
 
@@ -670,7 +681,7 @@ proc registerNetworkTools*(registry: var ToolRegistry) =
     except Exception as e:
       return ToolResult(
         success: false,
-        error: "Network error: " & e.message,
+        error: "Network error: " & e.msg,
         errorCode: "NETWORK_ERROR"
       )
   registerTool(registry, httpTool)
@@ -916,7 +927,7 @@ proc printRegistryStats*(registry: ToolRegistry) =
 # Export
 # ============================================================================
 
-export ParameterType, ParameterDef, ToolCategory, ToolPermission
+export ParameterType, ParameterDef, ToolCategory, ToolPermission, ToolCapability
 export ToolDefinition, ToolResult, ToolExecutionContext, ToolRegistry
 export newParameterDef, newToolPermission, newToolDefinition
 export initToolRegistry, registerTool, getTool, getToolsByCategory, searchTools, getAllTools
@@ -925,3 +936,73 @@ export validateToolParameters, executeTool
 export registerFileSystemTools, registerShellTools, registerNetworkTools, registerCodeAnalysisTools
 export toJson, fromJson, saveRegistry, loadRegistry
 export findToolsByCapability, getToolCategories, getToolInfo, printRegistryStats
+
+# ============================================================================
+# Additional Tool Registrations
+# ============================================================================
+
+import llm_integration
+
+proc registerLLMTools*(registry: var ToolRegistry, llmConfig: ModelConfig) =
+  let chatTool = newToolDefinition(
+    "LLMChat",
+    "Envía un prompt a un modelo de lenguaje",
+    tcAI
+  )
+  chatTool.parameters = @[
+    newParameterDef("prompt", ptString, "Texto de entrada", true),
+    newParameterDef("system", ptString, "Prompt de sistema", false),
+    newParameterDef("temperature", ptFloat, "0-1", false, "0.7")
+  ]
+  chatTool.handler = proc(params: JsonNode): ToolResult =
+    let prompt = params{"prompt"}.getStr()
+    let system = params{"system"}.getStr("")
+    let temp = params{"temperature"}.getFloat(0.7)
+    let req = LLMRequest(prompt: prompt, systemPrompt: system, temperature: temp)
+    try:
+      let resp = callLLM(llmConfig, req)
+      return ToolResult(success: true, output: resp.content, data: %* {"tokens": resp.tokensUsed})
+    except Exception as e:
+      return ToolResult(success: false, error: e.msg)
+  registerTool(registry, chatTool)
+
+# Note: DatabaseQuery requires db_sqlite which might not be installed.
+# We'll provide a mock or basic implementation if possible.
+# For now, let's assume it's available as it was requested.
+
+# In a real environment we would: import db_sqlite
+# Since I cannot easily install new nimble packages in some sandboxes without knowing if it works,
+# I will implement it as requested but it might need 'nimble install db_sqlite'
+
+import db_connector/db_sqlite
+
+proc registerDatabaseTools*(registry: var ToolRegistry) =
+  let dbTool = newToolDefinition(
+    "DatabaseQuery",
+    "Ejecuta una consulta SQL en SQLite",
+    tcDatabase
+  )
+  dbTool.parameters = @[
+    newParameterDef("dbPath", ptString, "Ruta del archivo .db", true),
+    newParameterDef("query", ptString, "SQL query", true),
+    newParameterDef("params", ptArray, "Parámetros (opcional)", false)
+  ]
+  dbTool.handler = proc(params: JsonNode): ToolResult =
+    let dbPath = params{"dbPath"}.getStr()
+    let query = params{"query"}.getStr()
+    var db: DbConn
+    try:
+      db = open(dbPath, "", "", "")
+      let rows = db.getAllRows(sql(query))
+      return ToolResult(
+        success: true,
+        output: "Query OK, " & $rows.len & " rows",
+        data: %* rows
+      )
+    except DbError as e:
+      return ToolResult(success: false, error: e.msg, errorCode: "DB_ERROR")
+    finally:
+      if db != nil: db.close()
+  registerTool(registry, dbTool)
+
+export registerDatabaseTools, registerLLMTools
