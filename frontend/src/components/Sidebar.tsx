@@ -9,6 +9,7 @@ import {
   BarChart3,
   Activity,
   Cpu,
+  Settings,
 } from "lucide-react";
 
 const navItems = [
@@ -16,6 +17,7 @@ const navItems = [
   { href: "/agents", label: "Agentes",    icon: Bot },
   { href: "/tasks",  label: "Ejecutar",   icon: PlayCircle },
   { href: "/stats",  label: "Estadísticas", icon: BarChart3 },
+  { href: "/settings", label: "Configuración", icon: Settings },
 ];
 
 export function Sidebar() {

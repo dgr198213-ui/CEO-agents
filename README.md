@@ -125,6 +125,14 @@ CEO-agents/
 └── docker-compose.yml  # Orquestación del stack completo
 ```
 
+## 🤝 Contribuciones y Open Source
+
+CEO-Agents es un proyecto **Open Source** y damos la bienvenida a cualquier persona que quiera colaborar. 
+
+- 📜 **Licencia:** MIT (ver [LICENSE](LICENSE)).
+- 🚀 **Guía de Contribución:** Revisa [CONTRIBUTING.md](CONTRIBUTING.md) para empezar.
+- 🧬 **Comunidad:** Ayúdanos a evolucionar el enjambre de agentes.
+
 ## 📄 Licencia
 
 Este proyecto está bajo la Licencia MIT. Ver el archivo [LICENSE](LICENSE) para más detalles.

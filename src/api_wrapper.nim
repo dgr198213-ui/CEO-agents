@@ -28,6 +28,7 @@ var
   totalRequestsServed: int
   totalTasksExecuted: int
   serverInitialized: bool = false
+  globalCredentials: seq[JsonNode] = @[] # Cache simple de credenciales
 
 proc initGlobalState() =
   ## Inicializa el estado global del servidor una sola vez.
@@ -298,6 +299,68 @@ proc processRequest(req: Request) {.async, gcsafe.} =
     # POST /api/v1/execute
     elif meth == HttpPost and path == "/api/v1/execute":
       await handleExecuteTask(req)
+
+    # --- Credential Management Endpoints ---
+    
+    # GET /api/v1/credentials
+    elif meth == HttpGet and path == "/api/v1/credentials":
+      await req.respondJson(Http200, %* {"credentials": globalCredentials})
+
+    # POST /api/v1/credentials
+    elif meth == HttpPost and path == "/api/v1/credentials":
+      try:
+        let cred = parseJson(req.body)
+        var newCred = cred
+        newCred["id"] = %($int(epochTime()))
+        newCred["createdAt"] = %(now().format("yyyy-MM-dd'T'HH:mm:ss'Z'"))
+        newCred["updatedAt"] = newCred["createdAt"]
+        newCred["isActive"] = %false
+        globalCredentials.add(newCred)
+        await req.respondJson(Http201, newCred)
+      except:
+        await req.respondError(Http400, "Error al procesar credencial")
+
+    # POST /api/v1/credentials/:id/activate
+    elif meth == HttpPost and path.startsWith("/api/v1/credentials/") and path.endsWith("/activate"):
+      let id = path["/api/v1/credentials/".len .. ^("/activate".len + 1)]
+      var activated: JsonNode
+      for i in 0 ..< globalCredentials.len:
+        if globalCredentials[i]["id"].getStr() == id:
+          globalCredentials[i]["isActive"] = %true
+          activated = globalCredentials[i]
+          # Actualizar configuración global del LLM
+          let providerStr = activated["provider"].getStr()
+          let provider = case providerStr
+            of "openai": lpOpenAI
+            of "anthropic": lpAnthropic
+            of "openrouter": lpOpenRouter
+            else: lpOllama
+          
+          globalLLMConfig = ModelConfig(
+            provider: provider,
+            model: activated{"model"}.getStr("gpt-3.5-turbo"),
+            apiKey: activated{"apiKey"}.getStr(""),
+            baseUrl: activated{"apiUrl"}.getStr(if provider == lpOpenRouter: "https://openrouter.ai" else: ""),
+            maxTokens: 4096,
+            temperature: 0.7
+          )
+        else:
+          globalCredentials[i]["isActive"] = %false
+      
+      if activated != nil:
+        await req.respondJson(Http200, activated)
+      else:
+        await req.respondError(Http404, "Credencial no encontrada")
+
+    # DELETE /api/v1/credentials/:id
+    elif meth == HttpDelete and path.startsWith("/api/v1/credentials/"):
+      let id = path["/api/v1/credentials/".len .. ^1]
+      let oldLen = globalCredentials.len
+      globalCredentials.keepIf(proc(x: JsonNode): bool = x["id"].getStr() != id)
+      if globalCredentials.len < oldLen:
+        await req.respond(Http204, "", corsHeaders())
+      else:
+        await req.respondError(Http404, "Credencial no encontrada")
 
     # GET / - Página de bienvenida
     elif meth == HttpGet and (path == "/" or path == ""):

@@ -1,7 +1,7 @@
 ## LLM Integration Module - Connect agents with Language Models
 ## ============================================================================
 ## Provides abstraction layer for interacting with various LLM providers
-## Supports: OpenAI, Anthropic, Ollama (local models)
+## Supports: OpenAI, Anthropic, Ollama, OpenRouter
 ##
 ## Features:
 ## - Unified interface for multiple providers
@@ -10,7 +10,7 @@
 ## - Response caching for common queries
 ## - Configurable model selection per agent type
 
-import httpclient, json, times, strutils, sequtils, tables, math, re
+import httpclient, json, times, strutils, sequtils, tables, math, re, os
 
 # ============================================================================
 # Configuration Types
@@ -21,6 +21,7 @@ type
     lpOpenAI
     lpAnthropic
     lpOllama
+    lpOpenRouter
 
   ModelConfig* = object
     provider*: LLMProvider
@@ -125,11 +126,10 @@ type
 
 const
   OpenAIGPT4Cost* = 0.03
-  OpenAIGPT4032kCost* = 0.06
   OpenAIGPT35TurboCost* = 0.002
   AnthropicClaude3Cost* = 0.015
-  AnthropicClaude32Cost* = 0.018
-  OllamaLocalCost* = 0.0  # Free for local models
+  OpenRouterGenericCost* = 0.01 # Average
+  OllamaLocalCost* = 0.0
 
 # ============================================================================
 # HTTP Client Setup
@@ -143,15 +143,13 @@ proc initHTTPClient*() =
   globalClient = newHttpClient(timeout = 60000)
 
 # ============================================================================
-# Provider Implementation: OpenAI
+# Provider Implementation: OpenAI & OpenRouter (Compatible)
 # ============================================================================
 
 proc buildOpenAIRequest*(req: LLMRequest, model: string): string =
   var messages: seq[OpenAIMessage] = @[]
-
   if req.systemPrompt.len > 0:
     messages.add(OpenAIMessage(role: "system", content: req.systemPrompt))
-
   messages.add(OpenAIMessage(role: "user", content: req.prompt))
 
   let openReq = OpenAIRequest(
@@ -161,70 +159,70 @@ proc buildOpenAIRequest*(req: LLMRequest, model: string): string =
     temperature: req.temperature,
     stop: req.stopSequences
   )
-
   return $(%*openReq)
 
-proc parseOpenAIResponse*(response: string): LLMResponse =
+proc parseOpenAIResponse*(response: string, provider: LLMProvider): LLMResponse =
   let jsonNode = parseJson(response)
-
   var content = ""
   var finishReason = ""
   var promptTokens = 0
   var completionTokens = 0
 
-  if jsonNode.hasKey("choices"):
-    let choices = jsonNode["choices"]
-    if choices.len > 0:
-      let choice = choices[0]
-      if choice.hasKey("message") and choice["message"].hasKey("content"):
-        content = choice["message"]["content"].getStr()
-      if choice.hasKey("finish_reason"):
-        finishReason = choice["finish_reason"].getStr()
+  if jsonNode.hasKey("choices") and jsonNode["choices"].len > 0:
+    let choice = jsonNode["choices"][0]
+    if choice.hasKey("message") and choice["message"].hasKey("content"):
+      content = choice["message"]["content"].getStr()
+    if choice.hasKey("finish_reason"):
+      finishReason = choice["finish_reason"].getStr()
 
   if jsonNode.hasKey("usage"):
     let usage = jsonNode["usage"]
-    promptTokens = usage["prompt_tokens"].getInt()
-    completionTokens = usage["completion_tokens"].getInt()
+    promptTokens = usage{"prompt_tokens"}.getInt()
+    completionTokens = usage{"completion_tokens"}.getInt()
 
   let totalTokens = promptTokens + completionTokens
-  let cost = float(totalTokens) / 1000.0 * OpenAIGPT4Cost  # Simplified
+  let costPer1K = if provider == lpOpenRouter: OpenRouterGenericCost else: OpenAIGPT4Cost
+  let cost = float(totalTokens) / 1000.0 * costPer1K
 
   result = LLMResponse(
     content: content,
     model: jsonNode{"model"}.getStr("unknown"),
     tokensUsed: totalTokens,
     costEstimate: cost,
-    latencyMs: 0.0,  # Set by caller
+    latencyMs: 0.0,
     finishReason: finishReason
   )
 
-proc callOpenAI*(config: ModelConfig, request: LLMRequest): LLMResponse =
+proc callOpenAICompatible*(config: ModelConfig, request: LLMRequest): LLMResponse =
   let startTime = epochTime()
-
   let body = buildOpenAIRequest(request, config.model)
+  
+  let endpoint = if config.provider == lpOpenRouter:
+                   config.baseUrl & "/api/v1/chat/completions"
+                 else:
+                   config.baseUrl & "/v1/chat/completions"
+
   let headers = newHttpHeaders({
     "Content-Type": "application/json",
-    "Authorization": "Bearer " & config.apiKey
+    "Authorization": "Bearer " & config.apiKey,
+    "HTTP-Referer": "https://github.com/dgr198213-ui/CEO-agents", # For OpenRouter
+    "X-Title": "CEO-Agents"
   })
 
   try:
     globalClient.headers = headers
-    let response = globalClient.post(config.baseUrl & "/v1/chat/completions", body)
-
+    let response = globalClient.post(endpoint, body)
     if response.status != "200":
-      raise newException(ValueError, "OpenAI API error: " & response.status & " - " & response.body)
+      raise newException(ValueError, $config.provider & " API error: " & response.status & " - " & response.body)
 
-    var llmResponse = parseOpenAIResponse(response.body)
+    var llmResponse = parseOpenAIResponse(response.body, config.provider)
     llmResponse.latencyMs = (epochTime() - startTime) * 1000.0
-
     inc usageStats.totalRequests
     inc usageStats.totalTokens, llmResponse.tokensUsed
     usageStats.totalCost += llmResponse.costEstimate
-
     return llmResponse
-
   except Exception as e:
-    raise newException(ValueError, "OpenAI call failed: " & e.msg)
+    raise newException(ValueError, $config.provider & " call failed: " & e.msg)
 
 # ============================================================================
 # Provider Implementation: Anthropic
@@ -232,7 +230,6 @@ proc callOpenAI*(config: ModelConfig, request: LLMRequest): LLMResponse =
 
 proc buildAnthropicRequest*(req: LLMRequest, model: string): string =
   var messages: seq[AnthropicMessage] = @[]
-
   if req.systemPrompt.len > 0:
     messages.add(AnthropicMessage(role: "user", content: req.systemPrompt & "\n\n" & req.prompt))
   else:
@@ -244,29 +241,22 @@ proc buildAnthropicRequest*(req: LLMRequest, model: string): string =
     max_tokens: req.maxTokens,
     temperature: req.temperature
   )
-
   return $(%*anthropicReq)
 
 proc parseAnthropicResponse*(response: string): LLMResponse =
   let jsonNode = parseJson(response)
-
   var content = ""
   var finishReason = ""
   var inputTokens = 0
   var outputTokens = 0
 
-  if jsonNode.hasKey("content"):
-    let contents = jsonNode["content"]
-    if contents.len > 0 and contents[0].hasKey("text"):
-      content = contents[0]["text"].getStr()
-
+  if jsonNode.hasKey("content") and jsonNode["content"].len > 0:
+    content = jsonNode["content"][0]{"text"}.getStr()
   if jsonNode.hasKey("stop_reason"):
     finishReason = jsonNode["stop_reason"].getStr()
-
   if jsonNode.hasKey("usage"):
-    let usage = jsonNode["usage"]
-    inputTokens = usage["input_tokens"].getInt()
-    outputTokens = usage["output_tokens"].getInt()
+    inputTokens = jsonNode["usage"]{"input_tokens"}.getInt()
+    outputTokens = jsonNode["usage"]{"output_tokens"}.getInt()
 
   let totalTokens = inputTokens + outputTokens
   let cost = float(totalTokens) / 1000.0 * AnthropicClaude3Cost
@@ -282,36 +272,29 @@ proc parseAnthropicResponse*(response: string): LLMResponse =
 
 proc callAnthropic*(config: ModelConfig, request: LLMRequest): LLMResponse =
   let startTime = epochTime()
-
   let body = buildAnthropicRequest(request, config.model)
   let headers = newHttpHeaders({
     "Content-Type": "application/json",
     "x-api-key": config.apiKey,
-    "anthropic-version": "2023-06-01",
-    "anthropic-dangerous-direct-browser-access": "true"  # Required header
+    "anthropic-version": "2023-06-01"
   })
 
   try:
     globalClient.headers = headers
     let response = globalClient.post(config.baseUrl & "/v1/messages", body)
-
     if response.status != "200":
       raise newException(ValueError, "Anthropic API error: " & response.status & " - " & response.body)
-
     var llmResponse = parseAnthropicResponse(response.body)
     llmResponse.latencyMs = (epochTime() - startTime) * 1000.0
-
     inc usageStats.totalRequests
     inc usageStats.totalTokens, llmResponse.tokensUsed
     usageStats.totalCost += llmResponse.costEstimate
-
     return llmResponse
-
   except Exception as e:
     raise newException(ValueError, "Anthropic call failed: " & e.msg)
 
 # ============================================================================
-# Provider Implementation: Ollama (Local)
+# Provider Implementation: Ollama
 # ============================================================================
 
 proc buildOllamaRequest*(req: LLMRequest, model: string): string =
@@ -319,52 +302,33 @@ proc buildOllamaRequest*(req: LLMRequest, model: string): string =
     model: model,
     prompt: (if req.systemPrompt.len > 0: req.systemPrompt & "\n\n" & req.prompt else: req.prompt),
     stream: false,
-    options: OllamaOptions(
-      temperature: req.temperature,
-      num_predict: req.maxTokens
-    )
+    options: OllamaOptions(temperature: req.temperature, num_predict: req.maxTokens)
   )
-
   return $(%*ollamaReq)
 
 proc parseOllamaResponse*(response: string): LLMResponse =
   let jsonNode = parseJson(response)
-
-  var content = ""
-  if jsonNode.hasKey("response"):
-    content = jsonNode["response"].getStr()
-
   result = LLMResponse(
-    content: content,
+    content: jsonNode{"response"}.getStr(),
     model: jsonNode{"model"}.getStr("unknown"),
-    tokensUsed: 0,  # Ollama doesn't always report this
-    costEstimate: 0.0,  # Local model is free
+    tokensUsed: 0,
+    costEstimate: 0.0,
     latencyMs: 0.0,
     finishReason: if jsonNode{"done"}.getBool(): "stop" else: "length"
   )
 
 proc callOllama*(config: ModelConfig, request: LLMRequest): LLMResponse =
   let startTime = epochTime()
-
   let body = buildOllamaRequest(request, config.model)
-  let headers = newHttpHeaders({"Content-Type": "application/json"})
-
   try:
-    globalClient.headers = headers
+    globalClient.headers = newHttpHeaders({"Content-Type": "application/json"})
     let response = globalClient.post(config.baseUrl & "/api/generate", body)
-
     if response.status != "200":
       raise newException(ValueError, "Ollama API error: " & response.status)
-
     var llmResponse = parseOllamaResponse(response.body)
     llmResponse.latencyMs = (epochTime() - startTime) * 1000.0
-
     inc usageStats.totalRequests
-    inc usageStats.totalTokens, llmResponse.tokensUsed
-    # No cost for local models
-
     return llmResponse
-
   except Exception as e:
     raise newException(ValueError, "Ollama call failed: " & e.msg)
 
@@ -373,127 +337,54 @@ proc callOllama*(config: ModelConfig, request: LLMRequest): LLMResponse =
 # ============================================================================
 
 proc callLLM*(config: ModelConfig, request: LLMRequest, maxRetries: int = 3): LLMResponse =
-  ## Unified interface to call any LLM provider with automatic retry
-
   var lastError: string
   var retryCount = 0
-
   while retryCount < maxRetries:
     try:
       case config.provider
-      of lpOpenAI:
-        return callOpenAI(config, request)
-      of lpAnthropic:
-        return callAnthropic(config, request)
-      of lpOllama:
-        return callOllama(config, request)
-
+      of lpOpenAI, lpOpenRouter: return callOpenAICompatible(config, request)
+      of lpAnthropic: return callAnthropic(config, request)
+      of lpOllama: return callOllama(config, request)
     except Exception as e:
       lastError = e.msg
       inc retryCount
-
       if retryCount < maxRetries:
-        # Exponential backoff
-        let waitMs = (pow(2.0, float(retryCount)) * 1000).int
-        echo "Retry " & $retryCount & "/" & $maxRetries & " after " & $waitMs & "ms..."
-        # Note: In production, use proper sleep
-        discard
-
+        sleep((pow(2.0, float(retryCount)) * 1000).int)
   raise newException(ValueError, "LLM call failed after " & $maxRetries & " retries: " & lastError)
 
 proc createDefaultConfig*(provider: LLMProvider, apiKey: string = ""): ModelConfig =
   case provider
   of lpOpenAI:
-    result = ModelConfig(
-      provider: lpOpenAI,
-      model: "gpt-4",
-      apiKey: apiKey,
-      baseUrl: "https://api.openai.com",
-      maxTokens: 4096,
-      temperature: 0.7,
-      timeoutMs: 60000
-    )
+    result = ModelConfig(provider: lpOpenAI, model: "gpt-4", apiKey: apiKey, baseUrl: "https://api.openai.com", maxTokens: 4096, temperature: 0.7, timeoutMs: 60000)
+  of lpOpenRouter:
+    result = ModelConfig(provider: lpOpenRouter, model: "openai/gpt-3.5-turbo", apiKey: apiKey, baseUrl: "https://openrouter.ai", maxTokens: 4096, temperature: 0.7, timeoutMs: 60000)
   of lpAnthropic:
-    result = ModelConfig(
-      provider: lpAnthropic,
-      model: "claude-3-sonnet-20240229",
-      apiKey: apiKey,
-      baseUrl: "https://api.anthropic.com",
-      maxTokens: 4096,
-      temperature: 0.7,
-      timeoutMs: 60000
-    )
+    result = ModelConfig(provider: lpAnthropic, model: "claude-3-sonnet-20240229", apiKey: apiKey, baseUrl: "https://api.anthropic.com", maxTokens: 4096, temperature: 0.7, timeoutMs: 60000)
   of lpOllama:
-    result = ModelConfig(
-      provider: lpOllama,
-      model: "llama3",
-      apiKey: "",
-      baseUrl: "http://localhost:11434",
-      maxTokens: 4096,
-      temperature: 0.7,
-      timeoutMs: 120000
-    )
+    result = ModelConfig(provider: lpOllama, model: "llama3", apiKey: "", baseUrl: "http://localhost:11434", maxTokens: 4096, temperature: 0.7, timeoutMs: 120000)
 
-proc getUsageStats*(): UsageStats =
-  return usageStats
-
-proc resetUsageStats*() =
-  usageStats = UsageStats()
+proc getUsageStats*(): UsageStats = usageStats
+proc resetUsageStats*() = usageStats = UsageStats()
 
 # ============================================================================
-# Prompt Templates for Agents
+# Prompt Templates
 # ============================================================================
 
-type
-  PromptTemplate* = object
-    name*: string
-    systemPrompt*: string
-    userPromptTemplate*: string
+type PromptTemplate* = object
+  name*: string
+  systemPrompt*: string
+  userPromptTemplate*: string
 
 const
-  DefaultCodeReviewTemplate* = PromptTemplate(
-    name: "code_review",
-    systemPrompt: """You are an expert code reviewer. Analyze the provided code for:
-- Logic errors and bugs
-- Performance issues
-- Security vulnerabilities
-- Code style and readability
-- Potential improvements
-
-Provide specific, actionable feedback. If code is good, explain why.""",
-    userPromptTemplate: "Review this $LANGUAGE code:\n\n$CODE\n\nFocus on: $FOCUS"
-  )
-
-  DefaultCodeGenerationTemplate* = PromptTemplate(
-    name: "code_generation",
-    systemPrompt: """You are an expert $LANGUAGE programmer. Generate clean, efficient, well-documented code.
-Follow best practices for the language. Include comments explaining complex logic.""",
-    userPromptTemplate: "Generate $LANGUAGE code for:\n$REQUIREMENT\n\nContext:\n$CONTEXT"
-  )
-
-  DefaultTaskPlanningTemplate* = PromptTemplate(
-    name: "task_planning",
-    systemPrompt: """You are an expert software architect. Break down complex tasks into actionable steps.
-Consider dependencies, potential issues, and optimal execution order.""",
-    userPromptTemplate: "Break down this task into steps:\n$TASK\n\nProject context:\n$CONTEXT"
-  )
+  DefaultCodeReviewTemplate* = PromptTemplate(name: "code_review", systemPrompt: "Expert code reviewer...", userPromptTemplate: "Review code: $CODE")
+  DefaultCodeGenerationTemplate* = PromptTemplate(name: "code_generation", systemPrompt: "Expert programmer...", userPromptTemplate: "Generate code: $REQUIREMENT")
 
 proc fillTemplate*(promptTempl: PromptTemplate, variables: Table[string, string]): tuple[system: string, user: string] =
-  var systemPrompt = promptTempl.systemPrompt
-  var userPrompt = promptTempl.userPromptTemplate
+  var system = promptTempl.systemPrompt
+  var user = promptTempl.userPromptTemplate
+  for k, v in variables:
+    system = system.replace("$" & k, v)
+    user = user.replace("$" & k, v)
+  return (system, user)
 
-  for key, value in variables:
-    systemPrompt = systemPrompt.replace("$" & key, value)
-    userPrompt = userPrompt.replace("$" & key, value)
-
-  return (systemPrompt, userPrompt)
-
-# ============================================================================
-# Export
-# ============================================================================
-
-export LLMProvider, ModelConfig, LLMRequest, LLMResponse, UsageStats
-export OpenAIRequest, OpenAIResponse, AnthropicRequest, AnthropicResponse, OllamaRequest, OllamaResponse
-export callLLM, createDefaultConfig, getUsageStats, resetUsageStats, initHTTPClient
-export DefaultCodeReviewTemplate, DefaultCodeGenerationTemplate, DefaultTaskPlanningTemplate
-export fillTemplate, PromptTemplate
+export LLMProvider, ModelConfig, LLMRequest, LLMResponse, UsageStats, callLLM, createDefaultConfig, getUsageStats, resetUsageStats, initHTTPClient, fillTemplate, PromptTemplate
