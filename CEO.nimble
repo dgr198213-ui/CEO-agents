@@ -44,3 +44,6 @@ task test, "Ejecuta todos los ejemplos en modo de verificación":
   exec "nim c -r example_integrated_ceo_stack.nim"
   exec "nim c -r example_swarm.nim"
   echo "Tests básicos completados"
+
+task runAPI, "Inicia el servidor API REST para exponer los agentes":
+  exec "nim c -r --threads:off api_wrapper.nim"
