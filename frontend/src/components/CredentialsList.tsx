@@ -15,6 +15,10 @@ const PROVIDER_ICONS: Record<string, string> = {
   ollama: '🦙',
   openai: '🤖',
   anthropic: '🧠',
+  openrouter: '🌐',
+  groq: '⚡',
+  deepseek: '🔍',
+  mistral: '🌪️',
 };
 
 export function CredentialsList({

@@ -182,6 +182,54 @@ export default function SettingsPage() {
               Obtener API Key →
             </a>
           </div>
+
+          <div className="bg-white rounded-lg p-6 shadow">
+            <div className="text-3xl mb-2">⚡</div>
+            <h3 className="font-semibold text-gray-900">Groq</h3>
+            <p className="text-sm text-gray-600 mt-2">
+              Inferencia ultra rápida con modelos de código abierto. Ideal para aplicaciones en tiempo real.
+            </p>
+            <a
+              href="https://console.groq.com/keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 text-sm mt-3 inline-block"
+            >
+              Obtener API Key →
+            </a>
+          </div>
+
+          <div className="bg-white rounded-lg p-6 shadow">
+            <div className="text-3xl mb-2">🔍</div>
+            <h3 className="font-semibold text-gray-900">DeepSeek</h3>
+            <p className="text-sm text-gray-600 mt-2">
+              Modelos económicos y eficientes con excelente relación calidad-precio. Perfecto para producción.
+            </p>
+            <a
+              href="https://platform.deepseek.com/api_keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 text-sm mt-3 inline-block"
+            >
+              Obtener API Key →
+            </a>
+          </div>
+
+          <div className="bg-white rounded-lg p-6 shadow">
+            <div className="text-3xl mb-2">🌪️</div>
+            <h3 className="font-semibold text-gray-900">Mistral</h3>
+            <p className="text-sm text-gray-600 mt-2">
+              Modelos de IA de alto rendimiento con enfoque en privacidad y eficiencia. Alternativa europea.
+            </p>
+            <a
+              href="https://console.mistral.ai/api-keys/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 text-sm mt-3 inline-block"
+            >
+              Obtener API Key →
+            </a>
+          </div>
         </div>
       </div>
     </div>

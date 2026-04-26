@@ -334,13 +334,25 @@ proc processRequest(req: Request) {.async, gcsafe.} =
             of "openai": lpOpenAI
             of "anthropic": lpAnthropic
             of "openrouter": lpOpenRouter
+            of "groq": lpGroq
+            of "deepseek": lpDeepSeek
+            of "mistral": lpMistral
             else: lpOllama
           
+          let defaultBaseUrl = case provider
+            of lpOpenRouter: "https://openrouter.ai"
+            of lpGroq: "https://api.groq.com/openai"
+            of lpDeepSeek: "https://api.deepseek.com"
+            of lpMistral: "https://api.mistral.ai"
+            of lpOpenAI: "https://api.openai.com"
+            of lpAnthropic: "https://api.anthropic.com"
+            else: "http://localhost:11434"
+
           globalLLMConfig = ModelConfig(
             provider: provider,
-            model: activated{"model"}.getStr("gpt-3.5-turbo"),
+            model: activated{"model"}.getStr(if provider == lpGroq: "mixtral-8x7b-32768" else: "gpt-3.5-turbo"),
             apiKey: activated{"apiKey"}.getStr(""),
-            baseUrl: activated{"apiUrl"}.getStr(if provider == lpOpenRouter: "https://openrouter.ai" else: ""),
+            baseUrl: activated{"apiUrl"}.getStr(defaultBaseUrl),
             maxTokens: 4096,
             temperature: 0.7
           )

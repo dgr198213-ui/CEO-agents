@@ -1,7 +1,7 @@
 ## LLM Integration Module - Connect agents with Language Models
 ## ============================================================================
 ## Provides abstraction layer for interacting with various LLM providers
-## Supports: OpenAI, Anthropic, Ollama, OpenRouter
+## Supports: OpenAI, Anthropic, Ollama, OpenRouter, Groq, DeepSeek, Mistral
 ##
 ## Features:
 ## - Unified interface for multiple providers
@@ -22,6 +22,9 @@ type
     lpAnthropic
     lpOllama
     lpOpenRouter
+    lpGroq
+    lpDeepSeek
+    lpMistral
 
   ModelConfig* = object
     provider*: LLMProvider
@@ -128,7 +131,10 @@ const
   OpenAIGPT4Cost* = 0.03
   OpenAIGPT35TurboCost* = 0.002
   AnthropicClaude3Cost* = 0.015
-  OpenRouterGenericCost* = 0.01 # Average
+  OpenRouterGenericCost* = 0.01
+  GroqGenericCost* = 0.005
+  DeepSeekGenericCost* = 0.001
+  MistralGenericCost* = 0.002
   OllamaLocalCost* = 0.0
 
 # ============================================================================
@@ -143,7 +149,7 @@ proc initHTTPClient*() =
   globalClient = newHttpClient(timeout = 60000)
 
 # ============================================================================
-# Provider Implementation: OpenAI & OpenRouter (Compatible)
+# Provider Implementation: OpenAI Compatible (OpenAI, OpenRouter, Groq, DeepSeek, Mistral)
 # ============================================================================
 
 proc buildOpenAIRequest*(req: LLMRequest, model: string): string =
@@ -181,7 +187,13 @@ proc parseOpenAIResponse*(response: string, provider: LLMProvider): LLMResponse 
     completionTokens = usage{"completion_tokens"}.getInt()
 
   let totalTokens = promptTokens + completionTokens
-  let costPer1K = if provider == lpOpenRouter: OpenRouterGenericCost else: OpenAIGPT4Cost
+  let costPer1K = case provider
+    of lpOpenRouter: OpenRouterGenericCost
+    of lpGroq: GroqGenericCost
+    of lpDeepSeek: DeepSeekGenericCost
+    of lpMistral: MistralGenericCost
+    else: OpenAIGPT4Cost
+  
   let cost = float(totalTokens) / 1000.0 * costPer1K
 
   result = LLMResponse(
@@ -197,15 +209,15 @@ proc callOpenAICompatible*(config: ModelConfig, request: LLMRequest): LLMRespons
   let startTime = epochTime()
   let body = buildOpenAIRequest(request, config.model)
   
-  let endpoint = if config.provider == lpOpenRouter:
-                   config.baseUrl & "/api/v1/chat/completions"
-                 else:
-                   config.baseUrl & "/v1/chat/completions"
+  let endpoint = case config.provider
+    of lpOpenRouter: config.baseUrl & "/api/v1/chat/completions"
+    of lpGroq, lpDeepSeek, lpMistral: config.baseUrl & "/v1/chat/completions"
+    else: config.baseUrl & "/v1/chat/completions"
 
   let headers = newHttpHeaders({
     "Content-Type": "application/json",
     "Authorization": "Bearer " & config.apiKey,
-    "HTTP-Referer": "https://github.com/dgr198213-ui/CEO-agents", # For OpenRouter
+    "HTTP-Referer": "https://github.com/dgr198213-ui/CEO-agents",
     "X-Title": "CEO-Agents"
   })
 
@@ -342,7 +354,7 @@ proc callLLM*(config: ModelConfig, request: LLMRequest, maxRetries: int = 3): LL
   while retryCount < maxRetries:
     try:
       case config.provider
-      of lpOpenAI, lpOpenRouter: return callOpenAICompatible(config, request)
+      of lpOpenAI, lpOpenRouter, lpGroq, lpDeepSeek, lpMistral: return callOpenAICompatible(config, request)
       of lpAnthropic: return callAnthropic(config, request)
       of lpOllama: return callOllama(config, request)
     except Exception as e:
@@ -358,6 +370,12 @@ proc createDefaultConfig*(provider: LLMProvider, apiKey: string = ""): ModelConf
     result = ModelConfig(provider: lpOpenAI, model: "gpt-4", apiKey: apiKey, baseUrl: "https://api.openai.com", maxTokens: 4096, temperature: 0.7, timeoutMs: 60000)
   of lpOpenRouter:
     result = ModelConfig(provider: lpOpenRouter, model: "openai/gpt-3.5-turbo", apiKey: apiKey, baseUrl: "https://openrouter.ai", maxTokens: 4096, temperature: 0.7, timeoutMs: 60000)
+  of lpGroq:
+    result = ModelConfig(provider: lpGroq, model: "mixtral-8x7b-32768", apiKey: apiKey, baseUrl: "https://api.groq.com/openai", maxTokens: 4096, temperature: 0.7, timeoutMs: 60000)
+  of lpDeepSeek:
+    result = ModelConfig(provider: lpDeepSeek, model: "deepseek-chat", apiKey: apiKey, baseUrl: "https://api.deepseek.com", maxTokens: 4096, temperature: 0.7, timeoutMs: 60000)
+  of lpMistral:
+    result = ModelConfig(provider: lpMistral, model: "mistral-small-latest", apiKey: apiKey, baseUrl: "https://api.mistral.ai", maxTokens: 4096, temperature: 0.7, timeoutMs: 60000)
   of lpAnthropic:
     result = ModelConfig(provider: lpAnthropic, model: "claude-3-sonnet-20240229", apiKey: apiKey, baseUrl: "https://api.anthropic.com", maxTokens: 4096, temperature: 0.7, timeoutMs: 60000)
   of lpOllama:

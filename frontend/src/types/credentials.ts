@@ -3,7 +3,7 @@
  * Gestión de API Keys y configuración de proveedores LLM
  */
 
-export type LLMProvider = 'ollama' | 'openai' | 'anthropic' | 'openrouter';
+export type LLMProvider = 'ollama' | 'openai' | 'anthropic' | 'openrouter' | 'groq' | 'deepseek' | 'mistral';
 
 export interface CredentialConfig {
   id: string;
@@ -40,10 +40,28 @@ export interface OpenRouterConfig {
   provider: 'openrouter';
   apiKey: string;
   model: string;
-  referer?: string; // URL del sitio que usa OpenRouter
+  referer?: string;
 }
 
-export type LLMConfig = OllamaConfig | OpenAIConfig | AnthropicConfig | OpenRouterConfig;
+export interface GroqConfig {
+  provider: 'groq';
+  apiKey: string;
+  model: string;
+}
+
+export interface DeepSeekConfig {
+  provider: 'deepseek';
+  apiKey: string;
+  model: string;
+}
+
+export interface MistralConfig {
+  provider: 'mistral';
+  apiKey: string;
+  model: string;
+}
+
+export type LLMConfig = OllamaConfig | OpenAIConfig | AnthropicConfig | OpenRouterConfig | GroqConfig | DeepSeekConfig | MistralConfig;
 
 export interface CredentialsState {
   credentials: CredentialConfig[];
